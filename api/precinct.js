@@ -51,17 +51,17 @@ function buildHtml({ precinctName, precinctID, countyID, matchedAddress, lat, ln
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>${precinctName} – Utah Democratic Precinct</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f4f8}
-  .header{background:#003594;color:#fff;padding:12px 16px}
+  html,body{height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f4f8;display:flex;flex-direction:column}
+  .header{background:#003594;color:#fff;padding:12px 16px;flex-shrink:0}
   .header h2{font-size:1.1rem;font-weight:700}
   .header p{font-size:.8rem;opacity:.8;margin-top:2px}
-  .meta{display:flex;gap:16px;padding:10px 16px;background:#fff;border-bottom:2px solid #e0e7ef;flex-wrap:wrap}
+  .meta{display:flex;gap:16px;padding:10px 16px;background:#fff;border-bottom:2px solid #e0e7ef;flex-wrap:wrap;flex-shrink:0}
   .meta span{font-size:.82rem;color:#455a80}
   .meta strong{color:#003594}
-  #map{height:calc(100vh - 100px);min-height:300px}
+  #map{flex:1;min-height:300px}
 </style>
 </head>
 <body>
@@ -75,16 +75,30 @@ function buildHtml({ precinctName, precinctID, countyID, matchedAddress, lat, ln
   <span><strong>Coordinates:</strong> ${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
 </div>
 <div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
 <script>
-  const map = L.map('map');
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap contributors',maxZoom:19
-  }).addTo(map);
-  const layer = L.geoJSON(${geojsonStr},{
-    style:{color:'#003594',weight:3,fillColor:'#4a90e2',fillOpacity:0.25}
-  }).addTo(map);
-  L.circleMarker([${lat},${lng}],{radius:8,fillColor:'#003594',color:'#fff',weight:2,fillOpacity:1}).addTo(map);
-  map.fitBounds(layer.getBounds(),{padding:[30,30]});
+  var GEOJSON = ${geojsonStr};
+  var LAT = ${lat}, LNG = ${lng};
+
+  window.addEventListener('load', function() {
+    var precinctMap = L.map('map').setView([LAT, LNG], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(precinctMap);
+
+    var precinctLayer = L.geoJSON(GEOJSON, {
+      style: { color: '#003594', weight: 3, fillColor: '#4a90e2', fillOpacity: 0.3 }
+    }).addTo(precinctMap);
+
+    L.circleMarker([LAT, LNG], {
+      radius: 8, fillColor: '#003594', color: '#fff', weight: 2, fillOpacity: 1
+    }).addTo(precinctMap);
+
+    precinctMap.invalidateSize();
+    precinctMap.fitBounds(precinctLayer.getBounds(), { padding: [30, 30] });
+  });
 <\/script>
 </body>
 </html>`;
