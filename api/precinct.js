@@ -123,7 +123,9 @@ module.exports = async (req, res) => {
       `${encodeURIComponent(street)}/${encodeURIComponent(zone)}` +
       `?apiKey=${UGRC_API_KEY}&spatialReference=4326`;
 
-    const geoRes  = await fetch(geocodeUrl);
+    const geoRes  = await fetch(geocodeUrl, {
+      headers: { Referer: 'https://utah-dem-precinct-map.vercel.app/' }
+    });
     const geoJson = await geoRes.json();
 
     if (geoJson.status !== 200 || !geoJson.result) {
