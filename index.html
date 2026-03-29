@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Utah Democratic Party – Find Your Precinct</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1a2744;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #003594;
+      color: #fff;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    header .star { font-size: 2rem; line-height: 1; }
+    header h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+    header p  { font-size: .82rem; opacity: .85; margin-top: 2px; }
+
+    /* ── Search panel ── */
+    .search-panel {
+      background: #fff;
+      border-bottom: 3px solid #003594;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .search-panel label {
+      font-size: .85rem;
+      font-weight: 600;
+      color: #003594;
+      letter-spacing: .02em;
+    }
+    .input-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .input-row input {
+      flex: 1 1 260px;
+      padding: 11px 14px;
+      border: 2px solid #c5d0e0;
+      border-radius: 6px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .input-row input:focus { border-color: #003594; }
+    .input-row button {
+      padding: 11px 22px;
+      background: #003594;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .2s;
+    }
+    .input-row button:hover  { background: #0048c8; }
+    .input-row button:active { background: #002a70; }
+
+    .hint {
+      font-size: .78rem;
+      color: #607090;
+    }
+
+    /* ── Result banner ── */
+    #result-banner {
+      display: none;
+      background: #e8f0fe;
+      border-left: 5px solid #003594;
+      padding: 14px 20px;
+      font-size: 1rem;
+    }
+    #result-banner.error {
+      background: #fde8e8;
+      border-left-color: #b00020;
+      color: #b00020;
+    }
+    #result-banner strong { color: #003594; }
+    #result-banner.error strong { color: #b00020; }
+
+    /* ── Map ── */
+    #map {
+      flex: 1;
+      min-height: 420px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      background: #003594;
+      color: rgba(255,255,255,.7);
+      text-align: center;
+      font-size: .75rem;
+      padding: 10px 16px;
+    }
+    footer a { color: rgba(255,255,255,.85); }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 3px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 520px) {
+      header h1 { font-size: 1.05rem; }
+      .input-row input { flex-basis: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="star">★</div>
+  <div>
+    <h1>Utah Democratic Party</h1>
+    <p>Find Your Precinct</p>
+  </div>
+</header>
+
+<div class="search-panel">
+  <label for="address-input">ENTER YOUR ADDRESS</label>
+  <div class="input-row">
+    <input
+      id="address-input"
+      type="text"
+      placeholder="e.g. 350 N State St, Salt Lake City  or  350 N State St 84114"
+      autocomplete="off"
+    />
+    <button id="search-btn" onclick="findPrecinct()">Find My Precinct</button>
+  </div>
+  <div class="hint">Enter your street address and city or ZIP code. Abbreviations are fine.</div>
+</div>
+
+<div id="result-banner"></div>
+
+<div id="map"></div>
+
+<footer>
+  Precinct boundaries provided by the <a href="https://gis.utah.gov" target="_blank">Utah AGRC / SGID</a>.
+  Address lookup powered by the <a href="https://api.mapserv.utah.gov" target="_blank">UGRC Web API</a>.
+</footer>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────────
+  const UGRC_API_KEY = 'YOUR_API_KEY_HERE';
+
+  const PRECINCT_SERVICE =
+    'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services/' +
+    'VistaBallotAreas/FeatureServer/0/query';
+
+  // ── Map init ─────────────────────────────────────────────────────────────────
+  const map = L.map('map').setView([39.5, -111.5], 7);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  let precinctLayer = null;
+  let markerLayer  = null;
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function showBanner(html, isError = false) {
+    const el = document.getElementById('result-banner');
+    el.innerHTML = html;
+    el.className = isError ? 'error' : '';
+    el.style.display = 'block';
+  }
+
+  function setBtnLoading(loading) {
+    const btn = document.getElementById('search-btn');
+    if (loading) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Searching…';
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = 'Find My Precinct';
+    }
+  }
+
+  /**
+   * Split a raw address string into { street, zone }.
+   * Zone can be a ZIP code or city name.
+   * Examples:
+   *   "350 N State St, Salt Lake City"  →  street="350 N State St"  zone="Salt Lake City"
+   *   "350 N State St 84114"            →  street="350 N State St"  zone="84114"
+   *   "350 N State St SLC UT 84114"     →  street="350 N State St"  zone="84114"   (zip wins)
+   */
+  function parseAddress(raw) {
+    raw = raw.trim();
+
+    // 1. If there's a 5-digit ZIP anywhere, pull it out as the zone
+    const zipMatch = raw.match(/\b(\d{5})\b/);
+    if (zipMatch) {
+      const zip = zipMatch[1];
+      // Remove the zip (and any trailing state abbr before it)
+      const street = raw
+        .replace(/,?\s*[A-Z]{2}\s+\d{5}/, '')   // ", UT 84114"
+        .replace(/,?\s*\d{5}/, '')                // " 84114"
+        .trim();
+      return { street, zone: zip };
+    }
+
+    // 2. Comma-separated: "street, city"  or  "street, city, UT"
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      // Drop trailing state abbreviation if present
+      let zone = parts[1].replace(/\s+[A-Z]{2}$/, '').trim();
+      return { street: parts[0], zone };
+    }
+
+    // 3. Fallback: try last word(s) as zone
+    const words = raw.split(/\s+/);
+    if (words.length >= 3) {
+      return {
+        street: words.slice(0, -1).join(' '),
+        zone:   words[words.length - 1]
+      };
+    }
+
+    return { street: raw, zone: 'Utah' };
+  }
+
+  // ── Main logic ────────────────────────────────────────────────────────────────
+  async function findPrecinct() {
+    const raw = document.getElementById('address-input').value.trim();
+    if (!raw) {
+      showBanner('Please enter an address.', true);
+      return;
+    }
+
+    setBtnLoading(true);
+    showBanner('<span class="spinner" style="border-top-color:#003594;border-color:rgba(0,53,148,.3)"></span> Looking up address…');
+
+    try {
+      // 1. Geocode via UGRC
+      const { street, zone } = parseAddress(raw);
+      const geocodeUrl =
+        `https://api.mapserv.utah.gov/api/v1/geocode/` +
+        `${encodeURIComponent(street)}/${encodeURIComponent(zone)}` +
+        `?apiKey=${UGRC_API_KEY}&spatialReference=4326`;
+
+      const geoRes  = await fetch(geocodeUrl);
+      const geoJson = await geoRes.json();
+
+      if (geoJson.status !== 200 || !geoJson.result) {
+        throw new Error(
+          geoJson.message || 'Address not found. Try adding your city or ZIP code.'
+        );
+      }
+
+      const { x: lng, y: lat } = geoJson.result.location;
+      const matchedAddress      = geoJson.result.inputAddress || raw;
+
+      // 2. Query ArcGIS for the precinct polygon containing this point
+      const params = new URLSearchParams({
+        geometry:         `${lng},${lat}`,
+        geometryType:     'esriGeometryPoint',
+        inSR:             '4326',
+        spatialRel:       'esriSpatialRelIntersects',
+        outFields:        'PrecinctID,AliasName,CountyID',
+        returnGeometry:   'true',
+        outSR:            '4326',
+        f:                'geojson'
+      });
+
+      const precRes  = await fetch(`${PRECINCT_SERVICE}?${params}`);
+      const precJson = await precRes.json();
+
+      if (!precJson.features || precJson.features.length === 0) {
+        throw new Error('No precinct found at that location. Make sure the address is in Utah.');
+      }
+
+      const feature   = precJson.features[0];
+      const props     = feature.properties;
+      const precinctName = props.AliasName  || props.PrecinctID || 'Unknown Precinct';
+      const countyID     = props.CountyID   || '';
+
+      // 3. Clear old layers
+      if (precinctLayer) map.removeLayer(precinctLayer);
+      if (markerLayer)   map.removeLayer(markerLayer);
+
+      // 4. Draw precinct boundary
+      precinctLayer = L.geoJSON(feature, {
+        style: {
+          color:       '#003594',
+          weight:      3,
+          opacity:     1,
+          fillColor:   '#4a90e2',
+          fillOpacity: 0.25
+        }
+      }).addTo(map);
+
+      // 5. Drop a marker at the geocoded point
+      markerLayer = L.circleMarker([lat, lng], {
+        radius:      8,
+        fillColor:   '#003594',
+        color:       '#fff',
+        weight:      2,
+        fillOpacity: 1
+      }).addTo(map);
+
+      // 6. Fit map to precinct bounds
+      map.fitBounds(precinctLayer.getBounds(), { padding: [40, 40] });
+
+      // 7. Show result
+      showBanner(
+        `📍 <strong>${precinctName}</strong>` +
+        (countyID ? `&nbsp;·&nbsp;${countyID} County` : '') +
+        `<br><span style="font-size:.85rem;color:#455a80">Matched address: ${matchedAddress}</span>`
+      );
+
+    } catch (err) {
+      showBanner(`⚠️ <strong>Error:</strong> ${err.message}`, true);
+    } finally {
+      setBtnLoading(false);
+    }
+  }
+
+  // Allow Enter key to trigger search
+  document.getElementById('address-input')
+    .addEventListener('keydown', e => { if (e.key === 'Enter') findPrecinct(); });
+</script>
+
+</body>
+</html>
