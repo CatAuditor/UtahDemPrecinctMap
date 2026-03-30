@@ -959,12 +959,16 @@ function buildPrecinctSidebar(props, latlng, districtInfo) {
   `;
 }
 
-function buildHouseSidebar(dist) {
+function buildHouseSidebar(dist, precinctCount) {
+  const countVal = precinctCount === null
+    ? '<span class="info-loading">Loading…</span>'
+    : precinctCount;
   return `
     <span class="info-type-badge badge-house-bg">House District</span>
     <div class="info-section">
       <div class="info-section-title">District Info</div>
       ${infoRow('District', dist)}
+      ${infoRow('Precincts', countVal)}
       ${infoRow('Chamber', 'Utah House of Representatives')}
       ${infoRow('Term', '2-year terms')}
       ${infoRow('Redistricted', '2022–2032')}
@@ -1010,11 +1014,35 @@ function attachPrecinctClick(layer) {
   });
 }
 
+async function getPrecinctCount(feature) {
+  try {
+    const esriGeom = JSON.stringify({
+      rings: feature.geometry.coordinates,
+      spatialReference: { wkid: 4326 }
+    });
+    const params = new URLSearchParams({
+      geometry:        esriGeom,
+      geometryType:    'esriGeometryPolygon',
+      inSR:            '4326',
+      spatialRel:      'esriSpatialRelIntersects',
+      returnCountOnly: 'true',
+      f:               'json'
+    });
+    const res  = await fetch(`${PRECINCT_SVC}?${params}`);
+    const json = await res.json();
+    return json.count ?? null;
+  } catch { return null; }
+}
+
 function attachHouseClick(layer) {
-  layer.on('click', function(e) {
+  layer.on('click', async function(e) {
     L.DomEvent.stopPropagation(e);
-    const dist = e.target.feature?.properties?.DIST;
-    if (dist != null) showSidebar(`House District ${dist}`, buildHouseSidebar(dist));
+    const dist    = e.target.feature?.properties?.DIST;
+    const feature = e.target.feature;
+    if (dist == null) return;
+    showSidebar(`House District ${dist}`, buildHouseSidebar(dist, null));
+    const count = await getPrecinctCount(feature);
+    showSidebar(`House District ${dist}`, buildHouseSidebar(dist, count));
   });
 }
 
