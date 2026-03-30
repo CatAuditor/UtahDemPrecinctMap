@@ -903,10 +903,10 @@ function infoRow(label, value) {
 
 function leLink(type, dist) {
   const urls = {
-    house:  `https://le.utah.gov/GIS/districtMap.jsp?districtType=House&dist=${dist}`,
-    senate: `https://le.utah.gov/GIS/districtMap.jsp?districtType=Senate&dist=${dist}`
+    house:  `https://ballotpedia.org/Utah_House_of_Representatives_District_${dist}`,
+    senate: `https://ballotpedia.org/Utah_State_Senate_District_${dist}`
   };
-  const label = type === 'house' ? `View House District ${dist}` : `View Senate District ${dist}`;
+  const label = type === 'house' ? `View House District ${dist} on Ballotpedia` : `View Senate District ${dist} on Ballotpedia`;
   return `<a class="info-link" href="${urls[type]}" target="_blank" rel="noopener">${label} →</a>`;
 }
 
@@ -954,7 +954,7 @@ function buildPrecinctSidebar(props, latlng, districtInfo) {
     ${house  != null ? leLink('house',  house)  : ''}
     ${senate != null ? leLink('senate', senate) : ''}
     <div style="margin-top:12px">
-      <a class="info-link" href="https://le.utah.gov/GIS/districtMap.jsp" target="_blank" rel="noopener">Utah Legislature District Map →</a>
+      <a class="info-link" href="https://ballotpedia.org/Utah_State_Legislature" target="_blank" rel="noopener">Utah Legislature on Ballotpedia →</a>
     </div>
   `;
 }
@@ -971,7 +971,7 @@ function buildHouseSidebar(dist) {
     </div>
     ${leLink('house', dist)}
     <div style="margin-top:8px">
-      <a class="info-link" href="https://house.utah.gov" target="_blank" rel="noopener">Utah House Website →</a>
+      <a class="info-link" href="https://ballotpedia.org/Utah_House_of_Representatives" target="_blank" rel="noopener">Utah House on Ballotpedia →</a>
     </div>
   `;
 }
@@ -988,7 +988,7 @@ function buildSenateSidebar(dist) {
     </div>
     ${leLink('senate', dist)}
     <div style="margin-top:8px">
-      <a class="info-link" href="https://senate.utah.gov" target="_blank" rel="noopener">Utah Senate Website →</a>
+      <a class="info-link" href="https://ballotpedia.org/Utah_State_Senate" target="_blank" rel="noopener">Utah Senate on Ballotpedia →</a>
     </div>
   `;
 }
