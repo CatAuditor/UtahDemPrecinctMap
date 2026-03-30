@@ -1018,11 +1018,12 @@ function attachPrecinctClick(layer) {
 
 async function getPrecinctCount(feature) {
   try {
+    // Use POST — district polygon geometry is too large for a GET URL
     const esriGeom = JSON.stringify({
       rings: feature.geometry.coordinates,
       spatialReference: { wkid: 4326 }
     });
-    const params = new URLSearchParams({
+    const body = new URLSearchParams({
       geometry:        esriGeom,
       geometryType:    'esriGeometryPolygon',
       inSR:            '4326',
@@ -1030,7 +1031,11 @@ async function getPrecinctCount(feature) {
       returnCountOnly: 'true',
       f:               'json'
     });
-    const res  = await fetch(`${PRECINCT_SVC}?${params}`);
+    const res  = await fetch(PRECINCT_SVC, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    body.toString()
+    });
     const json = await res.json();
     return json.count ?? null;
   } catch { return null; }
