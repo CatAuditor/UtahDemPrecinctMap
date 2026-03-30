@@ -13,9 +13,10 @@
 const UGRC_API_KEY     = process.env.UGRC_API_KEY;
 const ARCGIS_BASE      = 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services';
 
-const PRECINCT_SERVICE = `${ARCGIS_BASE}/VistaBallotAreas/FeatureServer/0/query`;
-const HOUSE_SERVICE    = `${ARCGIS_BASE}/UtahHouseDistricts2022to2032/FeatureServer/0/query`;
-const SENATE_SERVICE   = `${ARCGIS_BASE}/UtahSenateDistricts2022to2032/FeatureServer/0/query`;
+const PRECINCT_SERVICE  = `${ARCGIS_BASE}/VistaBallotAreas/FeatureServer/0/query`;
+const HOUSE_SERVICE     = `${ARCGIS_BASE}/UtahHouseDistricts2022to2032/FeatureServer/0/query`;
+const SENATE_SERVICE    = `${ARCGIS_BASE}/UtahSenateDistricts2022to2032/FeatureServer/0/query`;
+const CONGRESS_SERVICE  = `${ARCGIS_BASE}/political_us_congress_districts_2026_to_2032/FeatureServer/0/query`;
 
 // ── Address parser ────────────────────────────────────────────────────────────
 function parseAddress(raw) {
@@ -63,17 +64,19 @@ function pointQueryParams(lng, lat, outFields, returnGeometry = true) {
 function buildHtml({
   precinctName, precinctID, countyID, matchedAddress,
   lat, lng,
-  precinctGeojson, houseGeojson, senateGeojson,
-  houseDistrict, senateDistrict
+  precinctGeojson, houseGeojson, senateGeojson, congressGeojson,
+  houseDistrict, senateDistrict, congressDistrict
 }) {
   const layers = JSON.stringify({
-    precinct: precinctGeojson,
-    house:    houseGeojson    || null,
-    senate:   senateGeojson   || null
+    precinct:    precinctGeojson,
+    house:       houseGeojson       || null,
+    senate:      senateGeojson      || null,
+    congressional: congressGeojson  || null
   });
 
-  const houseLabel  = houseDistrict  ? `House District ${houseDistrict}`  : '';
-  const senateLabel = senateDistrict ? `Senate District ${senateDistrict}` : '';
+  const houseLabel    = houseDistrict    ? `House District ${houseDistrict}`              : '';
+  const senateLabel   = senateDistrict   ? `Senate District ${senateDistrict}`            : '';
+  const congressLabel = congressDistrict ? `Congressional District ${congressDistrict}`   : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -96,6 +99,7 @@ function buildHtml({
   .badge-house{background:#7c3aed}
   .badge-senate{background:#0891b2}
   .badge-precinct{background:#003594}
+  .badge-congress{background:#d97706}
   #map{flex:1;min-height:300px}
   .legend{background:#fff;padding:8px 12px;border-radius:6px;box-shadow:0 1px 5px rgba(0,0,0,.2);font-size:.78rem;line-height:1.8}
   .legend-item{display:flex;align-items:center;gap:6px}
@@ -109,8 +113,9 @@ function buildHtml({
 </div>
 <div class="meta">
   <span><span class="badge badge-precinct">Precinct</span> <strong>${precinctID}</strong></span>
-  ${houseLabel  ? `<span><span class="badge badge-house">House</span> <strong>${houseLabel}</strong></span>`   : ''}
-  ${senateLabel ? `<span><span class="badge badge-senate">Senate</span> <strong>${senateLabel}</strong></span>` : ''}
+  ${congressLabel ? `<span><span class="badge badge-congress">Congress</span> <strong>${congressLabel}</strong></span>` : ''}
+  ${houseLabel    ? `<span><span class="badge badge-house">House</span> <strong>${houseLabel}</strong></span>`          : ''}
+  ${senateLabel   ? `<span><span class="badge badge-senate">Senate</span> <strong>${senateLabel}</strong></span>`       : ''}
   <span style="margin-left:auto;color:#8899aa">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
 </div>
 <div id="map"></div>
@@ -128,13 +133,22 @@ function buildHtml({
 
     var bounds = null;
 
-    // Senate district – teal, widest outline, drawn first (bottom)
+    // Congressional district – amber, outermost, drawn first (bottom)
+    if (DATA.congressional) {
+      var congressLayer = L.geoJSON(DATA.congressional, {
+        style: { color: '#d97706', weight: 3, fillColor: '#fde68a', fillOpacity: 0.10, dashArray: '12 5' }
+      }).addTo(m);
+      congressLayer.bindTooltip('${congressLabel}', { permanent: true, direction: 'center', className: 'district-tip' });
+      bounds = congressLayer.getBounds();
+    }
+
+    // Senate district – teal
     if (DATA.senate) {
       var senateLayer = L.geoJSON(DATA.senate, {
         style: { color: '#0891b2', weight: 3, fillColor: '#67e8f9', fillOpacity: 0.15, dashArray: '6 4' }
       }).addTo(m);
       senateLayer.bindTooltip('${senateLabel}', { permanent: true, direction: 'center', className: 'district-tip senate-tip' });
-      bounds = senateLayer.getBounds();
+      if (!bounds) bounds = senateLayer.getBounds();
     }
 
     // House district – purple, medium outline
@@ -164,8 +178,9 @@ function buildHtml({
       var d = L.DomUtil.create('div', 'legend');
       d.innerHTML =
         '<div class="legend-item"><div class="legend-swatch" style="background:#4a90e2;border:2px solid #003594"></div> Precinct</div>' +
-        (DATA.house  ? '<div class="legend-item"><div class="legend-swatch" style="background:#c4b5fd;border:2px solid #7c3aed"></div> House District</div>'   : '') +
-        (DATA.senate ? '<div class="legend-item"><div class="legend-swatch" style="background:#67e8f9;border:2px solid #0891b2"></div> Senate District</div>' : '');
+        (DATA.congressional ? '<div class="legend-item"><div class="legend-swatch" style="background:#fde68a;border:2px solid #d97706"></div> Congressional District</div>' : '') +
+        (DATA.house         ? '<div class="legend-item"><div class="legend-swatch" style="background:#c4b5fd;border:2px solid #7c3aed"></div> House District</div>'         : '') +
+        (DATA.senate        ? '<div class="legend-item"><div class="legend-swatch" style="background:#67e8f9;border:2px solid #0891b2"></div> Senate District</div>'        : '');
       return d;
     };
     legend.addTo(m);
@@ -228,16 +243,18 @@ module.exports = async (req, res) => {
     const matchedAddress      = geoJson.result.inputAddress || address.trim();
 
     // 2. Query precinct, house district, and senate district in parallel
-    const [precRes, houseRes, senateRes] = await Promise.all([
+    const [precRes, houseRes, senateRes, congressRes] = await Promise.all([
       fetch(`${PRECINCT_SERVICE}?${pointQueryParams(lng, lat, 'PrecinctID,AliasName,CountyID,VistaID', true)}`),
       fetch(`${HOUSE_SERVICE}?${pointQueryParams(lng, lat, 'DIST', true)}`),
-      fetch(`${SENATE_SERVICE}?${pointQueryParams(lng, lat, 'DIST', true)}`)
+      fetch(`${SENATE_SERVICE}?${pointQueryParams(lng, lat, 'DIST', true)}`),
+      fetch(`${CONGRESS_SERVICE}?${pointQueryParams(lng, lat, 'DISTRICT', true)}`)
     ]);
 
-    const [precJson, houseJson, senateJson] = await Promise.all([
+    const [precJson, houseJson, senateJson, congressJson] = await Promise.all([
       precRes.json(),
       houseRes.json(),
-      senateRes.json()
+      senateRes.json(),
+      congressRes.json()
     ]);
 
     if (!precJson.features || precJson.features.length === 0) {
@@ -255,10 +272,12 @@ module.exports = async (req, res) => {
     const vistaID      = props.VistaID    || '';
     const countyID     = props.CountyID   || '';
 
-    const houseFeature  = houseJson.features?.[0]  || null;
-    const senateFeature = senateJson.features?.[0] || null;
-    const houseDistrict  = houseFeature?.properties?.DIST  ?? null;
-    const senateDistrict = senateFeature?.properties?.DIST ?? null;
+    const houseFeature    = houseJson.features?.[0]    || null;
+    const senateFeature   = senateJson.features?.[0]   || null;
+    const congressFeature = congressJson.features?.[0] || null;
+    const houseDistrict    = houseFeature?.properties?.DIST       ?? null;
+    const senateDistrict   = senateFeature?.properties?.DIST      ?? null;
+    const congressDistrict = congressFeature?.properties?.DISTRICT ?? null;
 
     // 4. Build response
     const response = {
@@ -271,8 +290,9 @@ module.exports = async (req, res) => {
           county:     countyID
         },
         districts: {
-          house:  houseDistrict  !== null ? { number: houseDistrict,  label: `House District ${houseDistrict}`  } : null,
-          senate: senateDistrict !== null ? { number: senateDistrict, label: `Senate District ${senateDistrict}` } : null
+          congressional: congressDistrict !== null ? { number: congressDistrict, label: `Congressional District ${congressDistrict}` } : null,
+          house:         houseDistrict    !== null ? { number: houseDistrict,    label: `House District ${houseDistrict}`            } : null,
+          senate:        senateDistrict   !== null ? { number: senateDistrict,   label: `Senate District ${senateDistrict}`          } : null
         },
         address: {
           input:    address.trim(),
@@ -281,19 +301,22 @@ module.exports = async (req, res) => {
         },
         ...(includeGeometry !== 'false' && {
           geometry: {
-            precinct: precFeature.geometry,
-            house:    houseFeature?.geometry  || null,
-            senate:   senateFeature?.geometry || null
+            precinct:    precFeature.geometry,
+            house:       houseFeature?.geometry    || null,
+            senate:      senateFeature?.geometry   || null,
+            congressional: congressFeature?.geometry || null
           }
         }),
         ...(includeHtml !== 'false' && {
           html: buildHtml({
             precinctName, precinctID, countyID, matchedAddress, lat, lng,
-            precinctGeojson: precFeature,
-            houseGeojson:    houseFeature,
-            senateGeojson:   senateFeature,
+            precinctGeojson:  precFeature,
+            houseGeojson:     houseFeature,
+            senateGeojson:    senateFeature,
+            congressGeojson:  congressFeature,
             houseDistrict,
-            senateDistrict
+            senateDistrict,
+            congressDistrict
           })
         })
       }

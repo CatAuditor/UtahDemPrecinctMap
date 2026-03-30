@@ -395,10 +395,11 @@
 // ── Config ───────────────────────────────────────────────────────────────────
 const UGRC_API_KEY = 'YOUR_API_KEY_HERE';
 
-const ARCGIS      = 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services';
-const PRECINCT_SVC = `${ARCGIS}/VistaBallotAreas/FeatureServer/0/query`;
-const HOUSE_SVC    = `${ARCGIS}/UtahHouseDistricts2022to2032/FeatureServer/0/query`;
-const SENATE_SVC   = `${ARCGIS}/UtahSenateDistricts2022to2032/FeatureServer/0/query`;
+const ARCGIS        = 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services';
+const PRECINCT_SVC  = `${ARCGIS}/VistaBallotAreas/FeatureServer/0/query`;
+const HOUSE_SVC     = `${ARCGIS}/UtahHouseDistricts2022to2032/FeatureServer/0/query`;
+const SENATE_SVC    = `${ARCGIS}/UtahSenateDistricts2022to2032/FeatureServer/0/query`;
+const CONGRESS_SVC  = `${ARCGIS}/political_us_congress_districts_2026_to_2032/FeatureServer/0/query`;
 const UTAH_VIEWBOX = '-114.05,36.99,-109.04,42.00';
 
 // Zoom level at which the all-precincts layer loads
@@ -417,21 +418,24 @@ let resultPrecinctLayer = null;
 let resultMarker        = null;
 
 // Overlay layers (toggleable)
-let houseLayer     = null;
-let senateLayer    = null;
-let allPrecincts   = null;
-let houseLoaded    = false;
-let senateLoaded   = false;
+let houseLayer      = null;
+let senateLayer     = null;
+let congressLayer   = null;
+let allPrecincts    = null;
+let houseLoaded     = false;
+let senateLoaded    = false;
+let congressLoaded  = false;
 let precinctsLoaded = false;
 
 // Layer visibility state (mirrors checkboxes)
-const layerVisible = { house: false, senate: false, precincts: false };
+const layerVisible = { house: false, senate: false, congress: false, precincts: false };
 
 // ── Layer styles ─────────────────────────────────────────────────────────────
 const STYLES = {
   precinct: { color: '#003594', weight: 3,   fillColor: '#4a90e2', fillOpacity: 0.25 },
   house:    { color: '#7c3aed', weight: 2,   fillColor: '#c4b5fd', fillOpacity: 0.15, dashArray: '6 3' },
   senate:   { color: '#0891b2', weight: 2.5, fillColor: '#67e8f9', fillOpacity: 0.15, dashArray: '8 4' },
+  congress: { color: '#d97706', weight: 3,   fillColor: '#fde68a', fillOpacity: 0.12, dashArray: '12 5' },
   result:   { color: '#003594', weight: 3,   fillColor: '#4a90e2', fillOpacity: 0.3  }
 };
 
@@ -440,9 +444,18 @@ const LayerControl = L.Control.extend({
   options: { position: 'topright' },
   onAdd() {
     const div = L.DomUtil.create('div', 'layer-panel');
-    L.DomEvent.disableClickPropagation(div);
+    // stopPropagation only — disableClickPropagation also calls preventDefault
+    // which suppresses checkbox toggle behavior inside the control
+    L.DomEvent.on(div, 'click dblclick mousedown touchstart pointerdown contextmenu',
+      L.DomEvent.stopPropagation);
     div.innerHTML = `
       <div class="layer-panel-title">Map Layers</div>
+
+      <label class="layer-toggle">
+        <input type="checkbox" id="chk-congress" />
+        <div class="swatch" style="background:#fde68a;border-color:#d97706"></div>
+        Congressional (2026)
+      </label>
 
       <label class="layer-toggle">
         <input type="checkbox" id="chk-senate" />
@@ -470,6 +483,10 @@ new LayerControl().addTo(map);
 
 // Wire up checkboxes after DOM settles
 setTimeout(() => {
+  document.getElementById('chk-congress').addEventListener('change', e => {
+    layerVisible.congress = e.target.checked;
+    toggleCongress(e.target.checked);
+  });
   document.getElementById('chk-senate').addEventListener('change', e => {
     layerVisible.senate = e.target.checked;
     toggleSenate(e.target.checked);
@@ -526,6 +543,34 @@ function addLabels(layer, getText, zoom = 0) {
 }
 
 // ── Toggle functions ──────────────────────────────────────────────────────────
+async function toggleCongress(show) {
+  if (!show) {
+    if (congressLayer) map.removeLayer(congressLayer);
+    return;
+  }
+  if (!congressLoaded) {
+    document.getElementById('chk-congress').disabled = true;
+    const features = await loadAllFeatures(CONGRESS_SVC, 'DISTRICT');
+    congressLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
+      style: STYLES.congress,
+      onEachFeature(feature, layer) {
+        const dist = feature.properties?.DISTRICT;
+        if (dist != null) {
+          layer.bindTooltip(`CD ${dist}`, {
+            permanent: true, direction: 'center',
+            className: 'district-label', opacity: 0.9
+          });
+        }
+        attachCongressClick(layer);
+      }
+    });
+    congressLoaded = true;
+    document.getElementById('chk-congress').disabled = false;
+  }
+  congressLayer.addTo(map);
+  if (resultPrecinctLayer) resultPrecinctLayer.bringToFront();
+}
+
 async function toggleSenate(show) {
   if (!show) {
     if (senateLayer) map.removeLayer(senateLayer);
@@ -579,6 +624,7 @@ async function toggleHouse(show) {
     document.getElementById('chk-house').disabled = false;
   }
   houseLayer.addTo(map);
+  if (congressLayer && map.hasLayer(congressLayer)) congressLayer.bringToFront();
   if (senateLayer && map.hasLayer(senateLayer)) senateLayer.bringToFront();
   if (resultPrecinctLayer) resultPrecinctLayer.bringToFront();
 }
@@ -903,13 +949,40 @@ function infoRow(label, value) {
   return `<div class="info-row"><span class="info-label">${label}</span><span class="info-value">${value}</span></div>`;
 }
 
+function ordinal(n) {
+  const s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 function leLink(type, dist) {
   const urls = {
-    house:  `https://ballotpedia.org/Utah_House_of_Representatives_District_${dist}`,
-    senate: `https://ballotpedia.org/Utah_State_Senate_District_${dist}`
+    house:    `https://ballotpedia.org/Utah_House_of_Representatives_District_${dist}`,
+    senate:   `https://ballotpedia.org/Utah_State_Senate_District_${dist}`,
+    congress: `https://ballotpedia.org/Utah%27s_${ordinal(dist)}_Congressional_District`
   };
-  const label = type === 'house' ? `View House District ${dist} on Ballotpedia` : `View Senate District ${dist} on Ballotpedia`;
-  return `<a class="info-link" href="${urls[type]}" target="_blank" rel="noopener">${label} →</a>`;
+  const labels = {
+    house:    `View House District ${dist} on Ballotpedia`,
+    senate:   `View Senate District ${dist} on Ballotpedia`,
+    congress: `View ${ordinal(dist)} Congressional District on Ballotpedia`
+  };
+  return `<a class="info-link" href="${urls[type]}" target="_blank" rel="noopener">${labels[type]} →</a>`;
+}
+
+function buildCongressSidebar(dist) {
+  return `
+    <span class="info-type-badge" style="background:#d97706">Congressional District</span>
+    <div class="info-section">
+      <div class="info-section-title">District Info</div>
+      ${infoRow('District', `${ordinal(dist)} Congressional District`)}
+      ${infoRow('Chamber', 'U.S. House of Representatives')}
+      ${infoRow('Term', '2-year terms')}
+      ${infoRow('Redistricted', '2026–2032')}
+    </div>
+    ${leLink('congress', dist)}
+    <div style="margin-top:8px">
+      <a class="info-link" href="https://ballotpedia.org/Utah_congressional_delegation" target="_blank" rel="noopener">Utah Congressional Delegation on Ballotpedia →</a>
+    </div>
+  `;
 }
 
 // ── Query district info for a lat/lng ─────────────────────────────────────────
@@ -920,24 +993,28 @@ async function queryDistrictInfo(lng, lat) {
     outFields, returnGeometry: 'false', outSR: '4326', f: 'geojson'
   });
   try {
-    const [hR, sR] = await Promise.all([
+    const [hR, sR, cR] = await Promise.all([
       fetch(`${HOUSE_SVC}?${params('DIST')}`),
-      fetch(`${SENATE_SVC}?${params('DIST')}`)
+      fetch(`${SENATE_SVC}?${params('DIST')}`),
+      fetch(`${CONGRESS_SVC}?${params('DISTRICT')}`)
     ]);
-    const [hJ, sJ] = await Promise.all([hR.json(), sR.json()]);
+    const [hJ, sJ, cJ] = await Promise.all([hR.json(), sR.json(), cR.json()]);
     return {
-      house:  hJ.features?.[0]?.properties?.DIST ?? null,
-      senate: sJ.features?.[0]?.properties?.DIST ?? null
+      house:    hJ.features?.[0]?.properties?.DIST     ?? null,
+      senate:   sJ.features?.[0]?.properties?.DIST     ?? null,
+      congress: cJ.features?.[0]?.properties?.DISTRICT ?? null
     };
-  } catch { return { house: null, senate: null }; }
+  } catch { return { house: null, senate: null, congress: null }; }
 }
 
 // ── Sidebar content builders ──────────────────────────────────────────────────
 function buildPrecinctSidebar(props, latlng, districtInfo) {
-  const name   = props.AliasName || props.PrecinctID || 'Unknown';
-  const county = COUNTIES[props.CountyID] || (props.CountyID ? `County ${props.CountyID}` : '—');
-  const house  = districtInfo?.house  ?? null;
-  const senate = districtInfo?.senate ?? null;
+  const name     = props.AliasName || props.PrecinctID || 'Unknown';
+  const county   = COUNTIES[props.CountyID] || (props.CountyID ? `County ${props.CountyID}` : '—');
+  const house    = districtInfo?.house    ?? null;
+  const senate   = districtInfo?.senate   ?? null;
+  const congress = districtInfo?.congress ?? null;
+  const loading  = '<span class="info-loading">Loading…</span>';
 
   return `
     <span class="info-type-badge badge-precinct-bg">Precinct</span>
@@ -950,14 +1027,13 @@ function buildPrecinctSidebar(props, latlng, districtInfo) {
     </div>
     <div class="info-section">
       <div class="info-section-title">Legislative Districts</div>
-      ${house  != null ? infoRow('House District', house)   : '<div class="info-loading">Loading house district…</div>'}
-      ${senate != null ? infoRow('Senate District', senate) : '<div class="info-loading">Loading senate district…</div>'}
+      ${congress != null ? infoRow('Congressional', `District ${congress}`) : infoRow('Congressional', loading)}
+      ${house    != null ? infoRow('State House',   house)                  : infoRow('State House',   loading)}
+      ${senate   != null ? infoRow('State Senate',  senate)                 : infoRow('State Senate',  loading)}
     </div>
-    ${house  != null ? leLink('house',  house)  : ''}
-    ${senate != null ? leLink('senate', senate) : ''}
-    <div style="margin-top:12px">
-      <a class="info-link" href="https://ballotpedia.org/Utah_State_Legislature" target="_blank" rel="noopener">Utah Legislature on Ballotpedia →</a>
-    </div>
+    ${congress != null ? leLink('congress', congress) : ''}
+    ${house    != null ? leLink('house',    house)    : ''}
+    ${senate   != null ? leLink('senate',   senate)   : ''}
   `;
 }
 
@@ -1057,6 +1133,14 @@ function attachHouseClick(layer) {
     showSidebar(`House District ${dist}`, buildHouseSidebar(dist, undefined)); // undefined = loading
     const count = await getPrecinctCount(feature);
     showSidebar(`House District ${dist}`, buildHouseSidebar(dist, count));    // null = failed, number = success
+  });
+}
+
+function attachCongressClick(layer) {
+  layer.on('click', function(e) {
+    L.DomEvent.stopPropagation(e);
+    const dist = e.target.feature?.properties?.DISTRICT;
+    if (dist != null) showSidebar(`${ordinal(dist)} Congressional District`, buildCongressSidebar(dist));
   });
 }
 
