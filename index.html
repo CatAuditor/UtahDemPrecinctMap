@@ -962,9 +962,11 @@ function buildPrecinctSidebar(props, latlng, districtInfo) {
 }
 
 function buildHouseSidebar(dist, precinctCount) {
-  const countVal = precinctCount === null
+  const countVal = precinctCount === undefined
     ? '<span class="info-loading">Loading…</span>'
-    : precinctCount;
+    : precinctCount === null
+      ? '—'
+      : precinctCount;
   return `
     <span class="info-type-badge badge-house-bg">House District</span>
     <div class="info-section">
@@ -1024,6 +1026,7 @@ async function getPrecinctCount(feature) {
       spatialReference: { wkid: 4326 }
     });
     const body = new URLSearchParams({
+      where:           '1=1',
       geometry:        esriGeom,
       geometryType:    'esriGeometryPolygon',
       inSR:            '4326',
@@ -1037,8 +1040,12 @@ async function getPrecinctCount(feature) {
       body:    body.toString()
     });
     const json = await res.json();
+    console.log('[precinctCount] response:', json);
     return json.count ?? null;
-  } catch { return null; }
+  } catch (err) {
+    console.error('[precinctCount] error:', err);
+    return null;
+  }
 }
 
 function attachHouseClick(layer) {
@@ -1047,9 +1054,9 @@ function attachHouseClick(layer) {
     const dist    = e.target.feature?.properties?.DIST;
     const feature = e.target.feature;
     if (dist == null) return;
-    showSidebar(`House District ${dist}`, buildHouseSidebar(dist, null));
+    showSidebar(`House District ${dist}`, buildHouseSidebar(dist, undefined)); // undefined = loading
     const count = await getPrecinctCount(feature);
-    showSidebar(`House District ${dist}`, buildHouseSidebar(dist, count));
+    showSidebar(`House District ${dist}`, buildHouseSidebar(dist, count));    // null = failed, number = success
   });
 }
 
