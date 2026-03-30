@@ -586,14 +586,15 @@ async function toggleHouse(show) {
 async function togglePrecincts(show) {
   if (!show) {
     if (allPrecincts) map.removeLayer(allPrecincts);
+    document.getElementById('precinct-note').textContent =
+      `Loads at zoom ≥ ${PRECINCT_ZOOM_THRESHOLD}`;
     return;
   }
   const zoom = map.getZoom();
   if (zoom < PRECINCT_ZOOM_THRESHOLD) {
+    // Stay checked — precincts will auto-load once user zooms in
     document.getElementById('precinct-note').textContent =
-      `Zoom in further to load (current zoom: ${zoom}, need ${PRECINCT_ZOOM_THRESHOLD}+)`;
-    document.getElementById('chk-precincts').checked = false;
-    layerVisible.precincts = false;
+      `✓ Enabled — zoom in to load (need zoom ${PRECINCT_ZOOM_THRESHOLD}+, current: ${zoom})`;
     return;
   }
   await loadVisiblePrecincts();
@@ -642,12 +643,13 @@ async function loadVisiblePrecincts() {
 map.on('moveend', () => {
   const zoom = map.getZoom();
   const note = document.getElementById('precinct-note');
-  if (note) {
-    note.textContent = zoom < PRECINCT_ZOOM_THRESHOLD
-      ? `Loads at zoom ≥ ${PRECINCT_ZOOM_THRESHOLD}`
-      : 'Loaded';
+  if (!layerVisible.precincts) return;
+  if (zoom < PRECINCT_ZOOM_THRESHOLD) {
+    if (note) note.textContent =
+      `✓ Enabled — zoom in to load (need zoom ${PRECINCT_ZOOM_THRESHOLD}+, current: ${zoom})`;
+  } else {
+    loadVisiblePrecincts();
   }
-  if (layerVisible.precincts) loadVisiblePrecincts();
 });
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
