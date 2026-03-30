@@ -142,8 +142,126 @@
     .badge-house    { background: #7c3aed; }
     .badge-senate   { background: #0891b2; }
 
-    /* ── Map ── */
-    #map { flex: 1; min-height: 420px; }
+    /* ── Map area wrapper ── */
+    #map-area {
+      display: flex;
+      flex: 1;
+      min-height: 420px;
+      position: relative;
+    }
+
+    #map {
+      flex: 1;
+      min-height: 0; /* override the existing min-height:420px since parent handles it */
+    }
+
+    /* ── Info Sidebar ── */
+    #info-sidebar {
+      width: 0;
+      overflow: hidden;
+      background: #fff;
+      border-left: 3px solid #003594;
+      display: flex;
+      flex-direction: column;
+      transition: width 0.25s ease;
+      flex-shrink: 0;
+    }
+    #info-sidebar.open {
+      width: 300px;
+    }
+    #sidebar-header {
+      background: #003594;
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    #sidebar-title {
+      font-weight: 700;
+      font-size: .95rem;
+      white-space: nowrap;
+    }
+    #sidebar-close {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 0 4px;
+      opacity: .8;
+      line-height: 1;
+    }
+    #sidebar-close:hover { opacity: 1; }
+    #sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      font-size: .875rem;
+    }
+
+    /* Sidebar info rows */
+    .info-section {
+      margin-bottom: 16px;
+    }
+    .info-section-title {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: #8899aa;
+      margin-bottom: 6px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 5px 0;
+      border-bottom: 1px solid #f0f4f8;
+      gap: 8px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: #607090; font-size: .8rem; flex-shrink: 0; }
+    .info-value { font-weight: 600; color: #1a2744; text-align: right; }
+    .info-link {
+      display: block;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #e8f0fe;
+      color: #003594;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: .82rem;
+      text-align: center;
+      transition: background .15s;
+    }
+    .info-link:hover { background: #d0e0fc; }
+    .info-loading {
+      color: #90a0b0;
+      font-size: .82rem;
+      font-style: italic;
+    }
+    .info-type-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: .75rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    .badge-precinct-bg { background: #003594; }
+    .badge-house-bg    { background: #7c3aed; }
+    .badge-senate-bg   { background: #0891b2; }
+
+    /* Mobile: sidebar goes below map */
+    @media (max-width: 640px) {
+      #map-area { flex-direction: column; }
+      #info-sidebar { width: 100% !important; max-height: 0; border-left: none; border-top: 3px solid #003594; transition: max-height 0.25s ease; }
+      #info-sidebar.open { max-height: 340px; }
+    }
 
     /* ── Layer panel (custom Leaflet control) ── */
     .layer-panel {
@@ -254,7 +372,16 @@
 </div>
 
 <div id="result-banner"></div>
-<div id="map"></div>
+<div id="map-area">
+  <div id="map"></div>
+  <div id="info-sidebar">
+    <div id="sidebar-header">
+      <span id="sidebar-title">Area Info</span>
+      <button id="sidebar-close" onclick="closeSidebar()">✕</button>
+    </div>
+    <div id="sidebar-content"></div>
+  </div>
+</div>
 
 <footer>
   Precinct boundaries provided by the <a href="https://gis.utah.gov" target="_blank">Utah AGRC / SGID</a>.
@@ -417,6 +544,7 @@ async function toggleSenate(show) {
             className: 'district-label', opacity: 0.9
           });
         }
+        attachSenateClick(layer);
       }
     });
     senateLoaded = true;
@@ -444,6 +572,7 @@ async function toggleHouse(show) {
             className: 'district-label', opacity: 0.9
           });
         }
+        attachHouseClick(layer);
       }
     });
     houseLoaded = true;
@@ -498,6 +627,7 @@ async function loadVisiblePrecincts() {
           opacity:   0.9
         });
       }
+      attachPrecinctClick(layer);
     }
   }).addTo(map);
 
@@ -675,7 +805,7 @@ async function findPrecinct() {
     });
 
     const [precRes, houseRes, senateRes] = await Promise.all([
-      fetch(`${PRECINCT_SVC}?${pointParams('PrecinctID,AliasName,CountyID')}`),
+      fetch(`${PRECINCT_SVC}?${pointParams('PrecinctID,AliasName,CountyID,VistaID')}`),
       fetch(`${HOUSE_SVC}?${pointParams('DIST')}`),
       fetch(`${SENATE_SVC}?${pointParams('DIST')}`)
     ]);
@@ -704,6 +834,7 @@ async function findPrecinct() {
       const sLayer = L.geoJSON(senateJson.features[0], {
         style: { color: '#0891b2', weight: 2.5, fillColor: '#67e8f9', fillOpacity: 0.12, dashArray: '8 4' }
       }).addTo(map);
+      attachSenateClick(sLayer);
       resultPrecinctLayer = sLayer; // store to clear next time
     }
 
@@ -712,11 +843,13 @@ async function findPrecinct() {
       const hLayer = L.geoJSON(houseJson.features[0], {
         style: { color: '#7c3aed', weight: 2, fillColor: '#c4b5fd', fillOpacity: 0.12, dashArray: '6 3' }
       }).addTo(map);
+      attachHouseClick(hLayer);
       if (!resultPrecinctLayer) resultPrecinctLayer = hLayer;
     }
 
     // Precinct (on top)
     const pLayer = L.geoJSON(precFeature, { style: STYLES.result }).addTo(map);
+    attachPrecinctClick(pLayer);
     resultPrecinctLayer = pLayer;
 
     // Pin
@@ -743,6 +876,158 @@ async function findPrecinct() {
     setBtnLoading(false);
   }
 }
+
+// ── County lookup ─────────────────────────────────────────────────────────────
+const COUNTIES = {
+  1:'Beaver',2:'Box Elder',3:'Cache',4:'Carbon',5:'Daggett',6:'Davis',
+  7:'Duchesne',8:'Emery',9:'Garfield',10:'Grand',11:'Iron',12:'Juab',
+  13:'Kane',14:'Millard',15:'Morgan',16:'Piute',17:'Rich',18:'Salt Lake',
+  19:'San Juan',20:'Sanpete',21:'Sevier',22:'Summit',23:'Tooele',
+  24:'Uintah',25:'Utah',26:'Wasatch',27:'Washington',28:'Wayne',29:'Weber'
+};
+
+// ── Sidebar helpers ───────────────────────────────────────────────────────────
+function showSidebar(title, html) {
+  document.getElementById('sidebar-title').textContent = title;
+  document.getElementById('sidebar-content').innerHTML = html;
+  document.getElementById('info-sidebar').classList.add('open');
+}
+
+function closeSidebar() {
+  document.getElementById('info-sidebar').classList.remove('open');
+}
+
+function infoRow(label, value) {
+  return `<div class="info-row"><span class="info-label">${label}</span><span class="info-value">${value}</span></div>`;
+}
+
+function leLink(type, dist) {
+  const urls = {
+    house:  `https://le.utah.gov/GIS/districtMap.jsp?districtType=House&dist=${dist}`,
+    senate: `https://le.utah.gov/GIS/districtMap.jsp?districtType=Senate&dist=${dist}`
+  };
+  const label = type === 'house' ? `View House District ${dist}` : `View Senate District ${dist}`;
+  return `<a class="info-link" href="${urls[type]}" target="_blank" rel="noopener">${label} →</a>`;
+}
+
+// ── Query district info for a lat/lng ─────────────────────────────────────────
+async function queryDistrictInfo(lng, lat) {
+  const params = (outFields) => new URLSearchParams({
+    geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint',
+    inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+    outFields, returnGeometry: 'false', outSR: '4326', f: 'geojson'
+  });
+  try {
+    const [hR, sR] = await Promise.all([
+      fetch(`${HOUSE_SVC}?${params('DIST')}`),
+      fetch(`${SENATE_SVC}?${params('DIST')}`)
+    ]);
+    const [hJ, sJ] = await Promise.all([hR.json(), sR.json()]);
+    return {
+      house:  hJ.features?.[0]?.properties?.DIST ?? null,
+      senate: sJ.features?.[0]?.properties?.DIST ?? null
+    };
+  } catch { return { house: null, senate: null }; }
+}
+
+// ── Sidebar content builders ──────────────────────────────────────────────────
+function buildPrecinctSidebar(props, latlng, districtInfo) {
+  const name   = props.AliasName || props.PrecinctID || 'Unknown';
+  const county = COUNTIES[props.CountyID] || (props.CountyID ? `County ${props.CountyID}` : '—');
+  const house  = districtInfo?.house  ?? null;
+  const senate = districtInfo?.senate ?? null;
+
+  return `
+    <span class="info-type-badge badge-precinct-bg">Precinct</span>
+    <div class="info-section">
+      <div class="info-section-title">Precinct Info</div>
+      ${infoRow('Name', name)}
+      ${infoRow('Precinct ID', props.PrecinctID || '—')}
+      ${props.VistaID ? infoRow('Vista ID', props.VistaID) : ''}
+      ${infoRow('County', county)}
+    </div>
+    <div class="info-section">
+      <div class="info-section-title">Legislative Districts</div>
+      ${house  != null ? infoRow('House District', house)   : '<div class="info-loading">Loading house district…</div>'}
+      ${senate != null ? infoRow('Senate District', senate) : '<div class="info-loading">Loading senate district…</div>'}
+    </div>
+    ${house  != null ? leLink('house',  house)  : ''}
+    ${senate != null ? leLink('senate', senate) : ''}
+    <div style="margin-top:12px">
+      <a class="info-link" href="https://le.utah.gov/GIS/districtMap.jsp" target="_blank" rel="noopener">Utah Legislature District Map →</a>
+    </div>
+  `;
+}
+
+function buildHouseSidebar(dist) {
+  return `
+    <span class="info-type-badge badge-house-bg">House District</span>
+    <div class="info-section">
+      <div class="info-section-title">District Info</div>
+      ${infoRow('District', dist)}
+      ${infoRow('Chamber', 'Utah House of Representatives')}
+      ${infoRow('Term', '2-year terms')}
+      ${infoRow('Redistricted', '2022–2032')}
+    </div>
+    ${leLink('house', dist)}
+    <div style="margin-top:8px">
+      <a class="info-link" href="https://house.utah.gov" target="_blank" rel="noopener">Utah House Website →</a>
+    </div>
+  `;
+}
+
+function buildSenateSidebar(dist) {
+  return `
+    <span class="info-type-badge badge-senate-bg">Senate District</span>
+    <div class="info-section">
+      <div class="info-section-title">District Info</div>
+      ${infoRow('District', dist)}
+      ${infoRow('Chamber', 'Utah State Senate')}
+      ${infoRow('Term', '4-year terms')}
+      ${infoRow('Redistricted', '2022–2032')}
+    </div>
+    ${leLink('senate', dist)}
+    <div style="margin-top:8px">
+      <a class="info-link" href="https://senate.utah.gov" target="_blank" rel="noopener">Utah Senate Website →</a>
+    </div>
+  `;
+}
+
+// ── Click handler attachment ──────────────────────────────────────────────────
+function attachPrecinctClick(layer) {
+  layer.on('click', async function(e) {
+    L.DomEvent.stopPropagation(e);
+    const props  = e.target.feature?.properties || {};
+    const latlng = e.latlng;
+    const name   = props.AliasName || props.PrecinctID || 'Precinct';
+
+    // Show immediately with loading state for districts
+    showSidebar(name, buildPrecinctSidebar(props, latlng, null));
+
+    // Query districts async, then update
+    const info = await queryDistrictInfo(latlng.lng, latlng.lat);
+    showSidebar(name, buildPrecinctSidebar(props, latlng, info));
+  });
+}
+
+function attachHouseClick(layer) {
+  layer.on('click', function(e) {
+    L.DomEvent.stopPropagation(e);
+    const dist = e.target.feature?.properties?.DIST;
+    if (dist != null) showSidebar(`House District ${dist}`, buildHouseSidebar(dist));
+  });
+}
+
+function attachSenateClick(layer) {
+  layer.on('click', function(e) {
+    L.DomEvent.stopPropagation(e);
+    const dist = e.target.feature?.properties?.DIST;
+    if (dist != null) showSidebar(`Senate District ${dist}`, buildSenateSidebar(dist));
+  });
+}
+
+// Close sidebar when clicking empty map
+map.on('click', function() { closeSidebar(); });
 </script>
 
 </body>
