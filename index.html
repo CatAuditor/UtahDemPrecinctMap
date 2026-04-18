@@ -138,9 +138,10 @@
       vertical-align: middle;
       margin-right: 3px;
     }
-    .badge-precinct { background: #003594; }
-    .badge-house    { background: #7c3aed; }
-    .badge-senate   { background: #0891b2; }
+    .badge-precinct     { background: #003594; }
+    .badge-house        { background: #7c3aed; }
+    .badge-senate       { background: #0891b2; }
+    .badge-school-board { background: #059669; }
 
     /* ── Map area wrapper ── */
     #map-area {
@@ -252,9 +253,10 @@
       color: #fff;
       margin-bottom: 12px;
     }
-    .badge-precinct-bg { background: #003594; }
-    .badge-house-bg    { background: #7c3aed; }
-    .badge-senate-bg   { background: #0891b2; }
+    .badge-precinct-bg     { background: #003594; }
+    .badge-house-bg        { background: #7c3aed; }
+    .badge-senate-bg       { background: #0891b2; }
+    .badge-school-board-bg { background: #059669; }
 
     /* Mobile: sidebar goes below map */
     @media (max-width: 640px) {
@@ -395,11 +397,12 @@
 // ── Config ───────────────────────────────────────────────────────────────────
 const UGRC_API_KEY = 'YOUR_API_KEY_HERE';
 
-const ARCGIS        = 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services';
-const PRECINCT_SVC  = `${ARCGIS}/VistaBallotAreas/FeatureServer/0/query`;
-const HOUSE_SVC     = `${ARCGIS}/UtahHouseDistricts2022to2032/FeatureServer/0/query`;
-const SENATE_SVC    = `${ARCGIS}/UtahSenateDistricts2022to2032/FeatureServer/0/query`;
-const CONGRESS_SVC  = `${ARCGIS}/political_us_congress_districts_2026_to_2032/FeatureServer/0/query`;
+const ARCGIS           = 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services';
+const PRECINCT_SVC     = `${ARCGIS}/VistaBallotAreas/FeatureServer/0/query`;
+const HOUSE_SVC        = `${ARCGIS}/UtahHouseDistricts2022to2032/FeatureServer/0/query`;
+const SENATE_SVC       = `${ARCGIS}/UtahSenateDistricts2022to2032/FeatureServer/0/query`;
+const CONGRESS_SVC     = `${ARCGIS}/political_us_congress_districts_2026_to_2032/FeatureServer/0/query`;
+const SCHOOL_BOARD_SVC = `${ARCGIS}/UtahSchoolBoardDistricts2022to2032/FeatureServer/0/query`;
 const UTAH_VIEWBOX = '-114.05,36.99,-109.04,42.00';
 
 // Zoom level at which the all-precincts layer loads
@@ -418,25 +421,28 @@ let resultPrecinctLayer = null;
 let resultMarker        = null;
 
 // Overlay layers (toggleable)
-let houseLayer      = null;
-let senateLayer     = null;
-let congressLayer   = null;
-let allPrecincts    = null;
-let houseLoaded     = false;
-let senateLoaded    = false;
-let congressLoaded  = false;
-let precinctsLoaded = false;
+let houseLayer       = null;
+let senateLayer      = null;
+let congressLayer    = null;
+let schoolBoardLayer = null;
+let allPrecincts     = null;
+let houseLoaded      = false;
+let senateLoaded     = false;
+let congressLoaded   = false;
+let schoolBoardLoaded = false;
+let precinctsLoaded  = false;
 
 // Layer visibility state (mirrors checkboxes)
-const layerVisible = { house: false, senate: false, congress: false, precincts: false };
+const layerVisible = { house: false, senate: false, congress: false, schoolBoard: false, precincts: false };
 
 // ── Layer styles ─────────────────────────────────────────────────────────────
 const STYLES = {
-  precinct: { color: '#003594', weight: 3,   fillColor: '#4a90e2', fillOpacity: 0.25 },
-  house:    { color: '#7c3aed', weight: 2,   fillColor: '#c4b5fd', fillOpacity: 0.15, dashArray: '6 3' },
-  senate:   { color: '#0891b2', weight: 2.5, fillColor: '#67e8f9', fillOpacity: 0.15, dashArray: '8 4' },
-  congress: { color: '#d97706', weight: 3,   fillColor: '#fde68a', fillOpacity: 0.12, dashArray: '12 5' },
-  result:   { color: '#003594', weight: 3,   fillColor: '#4a90e2', fillOpacity: 0.3  }
+  precinct:    { color: '#003594', weight: 3,   fillColor: '#4a90e2', fillOpacity: 0.25 },
+  house:       { color: '#7c3aed', weight: 2,   fillColor: '#c4b5fd', fillOpacity: 0.15, dashArray: '6 3' },
+  senate:      { color: '#0891b2', weight: 2.5, fillColor: '#67e8f9', fillOpacity: 0.15, dashArray: '8 4' },
+  congress:    { color: '#d97706', weight: 3,   fillColor: '#fde68a', fillOpacity: 0.12, dashArray: '12 5' },
+  schoolBoard: { color: '#059669', weight: 2,   fillColor: '#6ee7b7', fillOpacity: 0.15, dashArray: '5 4' },
+  result:      { color: '#003594', weight: 3,   fillColor: '#4a90e2', fillOpacity: 0.3  }
 };
 
 // ── Custom layer panel control ────────────────────────────────────────────────
@@ -470,6 +476,12 @@ const LayerControl = L.Control.extend({
       </label>
 
       <label class="layer-toggle">
+        <input type="checkbox" id="chk-school-board" />
+        <div class="swatch" style="background:#6ee7b7;border-color:#059669"></div>
+        School Board Districts
+      </label>
+
+      <label class="layer-toggle">
         <input type="checkbox" id="chk-precincts" />
         <div class="swatch" style="background:#4a90e2;border-color:#003594"></div>
         All Precincts
@@ -494,6 +506,10 @@ setTimeout(() => {
   document.getElementById('chk-house').addEventListener('change', e => {
     layerVisible.house = e.target.checked;
     toggleHouse(e.target.checked);
+  });
+  document.getElementById('chk-school-board').addEventListener('change', e => {
+    layerVisible.schoolBoard = e.target.checked;
+    toggleSchoolBoard(e.target.checked);
   });
   document.getElementById('chk-precincts').addEventListener('change', e => {
     layerVisible.precincts = e.target.checked;
@@ -626,6 +642,34 @@ async function toggleHouse(show) {
   houseLayer.addTo(map);
   if (congressLayer && map.hasLayer(congressLayer)) congressLayer.bringToFront();
   if (senateLayer && map.hasLayer(senateLayer)) senateLayer.bringToFront();
+  if (resultPrecinctLayer) resultPrecinctLayer.bringToFront();
+}
+
+async function toggleSchoolBoard(show) {
+  if (!show) {
+    if (schoolBoardLayer) map.removeLayer(schoolBoardLayer);
+    return;
+  }
+  if (!schoolBoardLoaded) {
+    document.getElementById('chk-school-board').disabled = true;
+    const features = await loadAllFeatures(SCHOOL_BOARD_SVC, 'DIST');
+    schoolBoardLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
+      style: STYLES.schoolBoard,
+      onEachFeature(feature, layer) {
+        const dist = feature.properties?.DIST;
+        if (dist != null) {
+          layer.bindTooltip(`SB ${dist}`, {
+            permanent: true, direction: 'center',
+            className: 'district-label', opacity: 0.9
+          });
+        }
+        attachSchoolBoardClick(layer);
+      }
+    });
+    schoolBoardLoaded = true;
+    document.getElementById('chk-school-board').disabled = false;
+  }
+  schoolBoardLayer.addTo(map);
   if (resultPrecinctLayer) resultPrecinctLayer.bringToFront();
 }
 
@@ -993,27 +1037,30 @@ async function queryDistrictInfo(lng, lat) {
     outFields, returnGeometry: 'false', outSR: '4326', f: 'geojson'
   });
   try {
-    const [hR, sR, cR] = await Promise.all([
+    const [hR, sR, cR, sbR] = await Promise.all([
       fetch(`${HOUSE_SVC}?${params('DIST')}`),
       fetch(`${SENATE_SVC}?${params('DIST')}`),
-      fetch(`${CONGRESS_SVC}?${params('DISTRICT')}`)
+      fetch(`${CONGRESS_SVC}?${params('DISTRICT')}`),
+      fetch(`${SCHOOL_BOARD_SVC}?${params('DIST')}`)
     ]);
-    const [hJ, sJ, cJ] = await Promise.all([hR.json(), sR.json(), cR.json()]);
+    const [hJ, sJ, cJ, sbJ] = await Promise.all([hR.json(), sR.json(), cR.json(), sbR.json()]);
     return {
-      house:    hJ.features?.[0]?.properties?.DIST     ?? null,
-      senate:   sJ.features?.[0]?.properties?.DIST     ?? null,
-      congress: cJ.features?.[0]?.properties?.DISTRICT ?? null
+      house:       hJ.features?.[0]?.properties?.DIST     ?? null,
+      senate:      sJ.features?.[0]?.properties?.DIST     ?? null,
+      congress:    cJ.features?.[0]?.properties?.DISTRICT ?? null,
+      schoolBoard: sbJ.features?.[0]?.properties?.DIST    ?? null
     };
-  } catch { return { house: null, senate: null, congress: null }; }
+  } catch { return { house: null, senate: null, congress: null, schoolBoard: null }; }
 }
 
 // ── Sidebar content builders ──────────────────────────────────────────────────
 function buildPrecinctSidebar(props, latlng, districtInfo) {
   const name     = props.AliasName || props.PrecinctID || 'Unknown';
   const county   = COUNTIES[props.CountyID] || (props.CountyID ? `County ${props.CountyID}` : '—');
-  const house    = districtInfo?.house    ?? null;
-  const senate   = districtInfo?.senate   ?? null;
-  const congress = districtInfo?.congress ?? null;
+  const house       = districtInfo?.house       ?? null;
+  const senate      = districtInfo?.senate      ?? null;
+  const congress    = districtInfo?.congress    ?? null;
+  const schoolBoard = districtInfo?.schoolBoard ?? null;
   const loading  = '<span class="info-loading">Loading…</span>';
 
   return `
@@ -1027,9 +1074,10 @@ function buildPrecinctSidebar(props, latlng, districtInfo) {
     </div>
     <div class="info-section">
       <div class="info-section-title">Legislative Districts</div>
-      ${congress != null ? infoRow('Congressional', `District ${congress}`) : infoRow('Congressional', loading)}
-      ${house    != null ? infoRow('State House',   house)                  : infoRow('State House',   loading)}
-      ${senate   != null ? infoRow('State Senate',  senate)                 : infoRow('State Senate',  loading)}
+      ${congress    != null ? infoRow('Congressional', `District ${congress}`) : infoRow('Congressional', loading)}
+      ${house       != null ? infoRow('State House',   house)                  : infoRow('State House',   loading)}
+      ${senate      != null ? infoRow('State Senate',  senate)                 : infoRow('State Senate',  loading)}
+      ${schoolBoard != null ? infoRow('School Board',  schoolBoard)            : infoRow('School Board',  loading)}
     </div>
     ${congress != null ? leLink('congress', congress) : ''}
     ${house    != null ? leLink('house',    house)    : ''}
@@ -1073,6 +1121,23 @@ function buildSenateSidebar(dist) {
     ${leLink('senate', dist)}
     <div style="margin-top:8px">
       <a class="info-link" href="https://ballotpedia.org/Utah_State_Senate" target="_blank" rel="noopener">Utah Senate on Ballotpedia →</a>
+    </div>
+  `;
+}
+
+function buildSchoolBoardSidebar(dist) {
+  return `
+    <span class="info-type-badge badge-school-board-bg">School Board District</span>
+    <div class="info-section">
+      <div class="info-section-title">District Info</div>
+      ${infoRow('District', dist)}
+      ${infoRow('Body', 'Utah State Board of Education')}
+      ${infoRow('Term', '4-year terms')}
+      ${infoRow('Redistricted', '2022–2032')}
+    </div>
+    <a class="info-link" href="https://schools.utah.gov/board" target="_blank" rel="noopener">Utah State Board of Education →</a>
+    <div style="margin-top:8px">
+      <a class="info-link" href="https://schools.utah.gov/board/utah/districtsmap" target="_blank" rel="noopener">Board Districts Map →</a>
     </div>
   `;
 }
@@ -1149,6 +1214,14 @@ function attachSenateClick(layer) {
     L.DomEvent.stopPropagation(e);
     const dist = e.target.feature?.properties?.DIST;
     if (dist != null) showSidebar(`Senate District ${dist}`, buildSenateSidebar(dist));
+  });
+}
+
+function attachSchoolBoardClick(layer) {
+  layer.on('click', function(e) {
+    L.DomEvent.stopPropagation(e);
+    const dist = e.target.feature?.properties?.DIST;
+    if (dist != null) showSidebar(`School Board District ${dist}`, buildSchoolBoardSidebar(dist));
   });
 }
 
