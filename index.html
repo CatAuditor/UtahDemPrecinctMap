@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Utah Democratic Party – Find Your Precinct</title>
+  <title>%%CLIENT_NAME%% – Find Your Precinct</title>
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -143,6 +143,96 @@
     .badge-senate         { background: #0891b2; }
     .badge-school-board   { background: #059669; }
     .badge-school-district{ background: #be185d; }
+
+    /* ── Candidates section ── */
+    .candidate-card {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f4f8;
+    }
+    .candidate-card:last-child { border-bottom: none; }
+    .candidate-avatar {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #e0e8f5;
+    }
+    .candidate-initials {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: #003594;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .78rem; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .candidate-body { flex: 1; min-width: 0; }
+    .candidate-name { font-weight: 700; font-size: .875rem; color: #1a2744; }
+    .candidate-office { font-size: .75rem; color: #607090; margin-top: 1px; }
+    .candidate-bio { font-size: .78rem; color: #455a80; margin-top: 4px; line-height: 1.4; }
+    .candidate-links { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .candidate-link {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 10px;
+      font-size: .72rem; font-weight: 600;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .candidate-link:hover { opacity: .8; }
+    .clink-site { background: #e8f0fe; color: #003594; }
+    .clink-vol  { background: #d1fae5; color: #065f46; }
+    .clink-don  { background: #fef3c7; color: #92400e; }
+
+    /* ── Volunteer form ── */
+    .vol-form-section {
+      background: #f5f8ff;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 4px;
+    }
+    .vol-field { margin-bottom: 10px; }
+    .vol-field label { display: block; font-size: .72rem; font-weight: 700; color: #455a80; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+    .vol-field input {
+      width: 100%; padding: 8px 10px;
+      border: 2px solid #c5d0e0; border-radius: 6px;
+      font-size: .875rem; outline: none;
+      transition: border-color .15s;
+    }
+    .vol-field input:focus { border-color: #003594; }
+    .vol-field input[readonly] { background: #eef2f8; color: #607090; }
+    .vol-submit {
+      width: 100%; padding: 10px;
+      background: #003594; color: #fff;
+      border: none; border-radius: 6px;
+      font-size: .9rem; font-weight: 700;
+      cursor: pointer; transition: background .15s; margin-top: 4px;
+    }
+    .vol-submit:hover { background: #0048c8; }
+    .vol-submit:disabled { background: #7a9fd4; cursor: not-allowed; }
+    .vol-message { font-size: .82rem; margin-top: 8px; text-align: center; }
+    .vol-message.success { color: #065f46; }
+    .vol-message.error   { color: #b00020; }
+
+    /* Get Involved button */
+    .get-involved-btn {
+      width: 100%;
+      padding: 10px;
+      background: #003594;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: .9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: 8px;
+    }
+    .get-involved-btn:hover { background: #0048c8; }
+    .get-involved-btn.open  { background: #455a80; }
 
     /* ── Map area wrapper ── */
     #map-area {
@@ -350,7 +440,7 @@
 <header>
   <div class="star">★</div>
   <div>
-    <h1>Utah Democratic Party</h1>
+    <h1>%%CLIENT_NAME%%</h1>
     <p>Find Your Precinct</p>
   </div>
 </header>
@@ -372,7 +462,7 @@
     </div>
     <button id="search-btn" onclick="findPrecinct()">Find My Precinct</button>
   </div>
-  <div class="hint">Start typing your address — suggestions will appear. Abbreviations and partial addresses are fine.</div>
+  <div class="hint">Start typing your %%CLIENT_STATE%% address — suggestions will appear. Abbreviations and partial addresses are fine.</div>
 </div>
 
 <div id="result-banner"></div>
@@ -396,23 +486,23 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── Config ───────────────────────────────────────────────────────────────────
-const UGRC_API_KEY = 'YOUR_API_KEY_HERE';
+// ── Config (injected at build time from environment variables) ────────────────
+const UGRC_API_KEY = '%%UGRC_API_KEY%%';
 
-const ARCGIS           = 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services';
-const PRECINCT_SVC     = `${ARCGIS}/VistaBallotAreas/FeatureServer/0/query`;
-const HOUSE_SVC        = `${ARCGIS}/UtahHouseDistricts2022to2032/FeatureServer/0/query`;
-const SENATE_SVC       = `${ARCGIS}/UtahSenateDistricts2022to2032/FeatureServer/0/query`;
-const CONGRESS_SVC     = `${ARCGIS}/political_us_congress_districts_2026_to_2032/FeatureServer/0/query`;
-const SCHOOL_BOARD_SVC    = `${ARCGIS}/UtahSchoolBoardDistricts2022to2032/FeatureServer/0/query`;
-const SCHOOL_DISTRICT_SVC = `${ARCGIS}/UtahSchoolDistrictBoundaries/FeatureServer/0/query`;
-const UTAH_VIEWBOX = '-114.05,36.99,-109.04,42.00';
+const ARCGIS           = '%%ARCGIS_BASE%%';
+const PRECINCT_SVC     = `${ARCGIS}/%%PRECINCT_SVC_PATH%%`;
+const HOUSE_SVC        = `${ARCGIS}/%%HOUSE_SVC_PATH%%`;
+const SENATE_SVC       = `${ARCGIS}/%%SENATE_SVC_PATH%%`;
+const CONGRESS_SVC     = `${ARCGIS}/%%CONGRESS_SVC_PATH%%`;
+const SCHOOL_BOARD_SVC    = `${ARCGIS}/%%SCHOOL_BOARD_SVC_PATH%%`;
+const SCHOOL_DISTRICT_SVC = `${ARCGIS}/%%SCHOOL_DISTRICT_SVC_PATH%%`;
+const STATE_VIEWBOX = '%%CLIENT_GEO_VIEWBOX%%';
 
 // Zoom level at which the all-precincts layer loads
 const PRECINCT_ZOOM_THRESHOLD = 11;
 
 // ── Map init ─────────────────────────────────────────────────────────────────
-const map = L.map('map').setView([39.5, -111.5], 7);
+const map = L.map('map').setView([%%CLIENT_MAP_CENTER_LAT%%, %%CLIENT_MAP_CENTER_LNG%%], %%CLIENT_MAP_ZOOM%%);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -846,8 +936,8 @@ async function fetchSuggestions(query) {
   suggestBox.classList.add('open');
   try {
     const url = `https://nominatim.openstreetmap.org/search?` + new URLSearchParams({
-      q: query + ', Utah', format: 'json', addressdetails: '1',
-      countrycodes: 'us', viewbox: UTAH_VIEWBOX, bounded: '1', limit: '6'
+      q: query + ', %%CLIENT_STATE%%', format: 'json', addressdetails: '1',
+      countrycodes: 'us', viewbox: STATE_VIEWBOX, bounded: '1', limit: '6'
     });
     const res  = await fetch(url, { headers: { 'Accept-Language': 'en-US,en' } });
     const data = await res.json();
@@ -904,7 +994,7 @@ function parseAddress(raw) {
   if (parts.length >= 2) return { street: parts[0], zone: parts[1].replace(/\s+[A-Z]{2}$/, '').trim() };
   const words = raw.split(/\s+/);
   if (words.length >= 3) return { street: words.slice(0, -1).join(' '), zone: words[words.length - 1] };
-  return { street: raw, zone: 'Utah' };
+  return { street: raw, zone: '%%CLIENT_STATE%%' };
 }
 
 // ── Main search ───────────────────────────────────────────────────────────────
@@ -951,7 +1041,7 @@ async function findPrecinct() {
     ]);
 
     if (!precJson.features?.length) {
-      throw new Error('No precinct found at that location. Make sure the address is in Utah.');
+      throw new Error('No precinct found at that location. Make sure the address is in %%CLIENT_STATE%%.');
     }
 
     const precFeature    = precJson.features[0];
@@ -1005,6 +1095,18 @@ async function findPrecinct() {
       houseTag + '&nbsp;' + senateTag +
       `<br><span style="font-size:.85rem;color:#455a80">Matched: ${matchedAddress}</span>`
     );
+
+    // 4. Show sidebar with precinct info + load candidates async
+    const districtInfo = {
+      house:    houseDistrict,
+      senate:   senateDistrict,
+      congress: null,   // loaded lazily on click; omit from post-search view
+      schoolBoard:    null,
+      schoolDistrict: null,
+    };
+    showSidebar(precinctName, buildPrecinctSidebar(props, { lat, lng }, districtInfo, undefined));
+    const candHtml = await loadCandidatesForDistricts(districtInfo, props.PrecinctID);
+    showSidebar(precinctName, buildPrecinctSidebar(props, { lat, lng }, districtInfo, candHtml));
 
   } catch (err) {
     showBanner(`⚠️ <strong>Error:</strong> ${err.message}`, true);
@@ -1105,7 +1207,7 @@ async function queryDistrictInfo(lng, lat) {
 }
 
 // ── Sidebar content builders ──────────────────────────────────────────────────
-function buildPrecinctSidebar(props, latlng, districtInfo) {
+function buildPrecinctSidebar(props, latlng, districtInfo, candidatesHtml) {
   const name     = props.AliasName || props.PrecinctID || 'Unknown';
   const county   = COUNTIES[props.CountyID] || (props.CountyID ? `County ${props.CountyID}` : '—');
   const house           = districtInfo?.house           ?? null;
@@ -1114,6 +1216,17 @@ function buildPrecinctSidebar(props, latlng, districtInfo) {
   const schoolBoard     = districtInfo?.schoolBoard     ?? null;
   const schoolDistrict  = districtInfo?.schoolDistrict  ?? null;
   const loading  = '<span class="info-loading">Loading…</span>';
+
+  const candSection = candidatesHtml !== undefined
+    ? `<div class="info-section">
+        <div class="info-section-title">Your Candidates</div>
+        ${candidatesHtml || '<span class="info-loading">Loading…</span>'}
+       </div>`
+    : '';
+
+  const volSection = districtInfo
+    ? buildVolunteerSection(props, districtInfo)
+    : '';
 
   return `
     <span class="info-type-badge badge-precinct-bg">Precinct</span>
@@ -1132,10 +1245,169 @@ function buildPrecinctSidebar(props, latlng, districtInfo) {
       ${schoolBoard    != null ? infoRow('School Board',    schoolBoard)    : infoRow('School Board',    loading)}
       ${schoolDistrict != null ? infoRow('School District', schoolDistrict) : infoRow('School District', loading)}
     </div>
+    ${candSection}
+    ${volSection}
     ${congress != null ? leLink('congress', congress) : ''}
     ${house    != null ? leLink('house',    house)    : ''}
     ${senate   != null ? leLink('senate',   senate)   : ''}
   `;
+}
+
+// ── Candidate rendering ───────────────────────────────────────────────────────
+function renderCandidateCard(c) {
+  const initials = c.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const avatar   = c.photo_url
+    ? `<img class="candidate-avatar" src="${c.photo_url}" alt="" />`
+    : `<div class="candidate-initials">${initials}</div>`;
+  const bio   = c.bio   ? `<div class="candidate-bio">${c.bio}</div>` : '';
+  const links = [
+    c.website      ? `<a class="candidate-link clink-site" href="${c.website}"      target="_blank" rel="noopener">Website</a>` : '',
+    c.volunteer_url? `<a class="candidate-link clink-vol"  href="${c.volunteer_url}" target="_blank" rel="noopener">Volunteer</a>` : '',
+    c.donate_url   ? `<a class="candidate-link clink-don"  href="${c.donate_url}"   target="_blank" rel="noopener">Donate</a>` : '',
+  ].filter(Boolean).join('');
+
+  return `
+    <div class="candidate-card">
+      ${avatar}
+      <div class="candidate-body">
+        <div class="candidate-name">${c.name}</div>
+        ${c.office ? `<div class="candidate-office">${c.office}</div>` : ''}
+        ${bio}
+        ${links ? `<div class="candidate-links">${links}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+async function loadCandidatesForDistricts(districtInfo, precinctId) {
+  const params = new URLSearchParams();
+  if (districtInfo?.house)    params.set('houseDistrict',    districtInfo.house);
+  if (districtInfo?.senate)   params.set('senateDistrict',   districtInfo.senate);
+  if (districtInfo?.congress) params.set('congressDistrict', districtInfo.congress);
+  if (precinctId)             params.set('precinctId',       precinctId);
+
+  if (!params.toString()) return '';
+
+  try {
+    const res  = await fetch(`/api/candidates?${params}`);
+    const data = await res.json();
+    if (!data.candidates?.length) return '<span style="color:#90a0b0;font-size:.8rem">No candidates on file yet.</span>';
+    return data.candidates.map(renderCandidateCard).join('');
+  } catch {
+    return '<span style="color:#90a0b0;font-size:.8rem">Could not load candidates.</span>';
+  }
+}
+
+// ── Volunteer form ────────────────────────────────────────────────────────────
+// Holds state for the currently-open volunteer form
+let _volProps = null;
+let _volDistricts = null;
+
+function buildVolunteerSection(props, districtInfo) {
+  _volProps     = props;
+  _volDistricts = districtInfo;
+  return `
+    <div class="info-section">
+      <button class="get-involved-btn" id="vol-toggle-btn" onclick="toggleVolForm()">Get Involved →</button>
+      <div id="vol-form-wrap" style="display:none">
+        ${buildVolForm(props, districtInfo)}
+      </div>
+    </div>`;
+}
+
+function buildVolForm(props, districtInfo) {
+  const county = COUNTIES[props.CountyID] || '';
+  return `
+    <div class="vol-form-section">
+      <div class="vol-field">
+        <label>First Name *</label>
+        <input type="text" id="vol-first" placeholder="Jane" autocomplete="given-name" />
+      </div>
+      <div class="vol-field">
+        <label>Last Name</label>
+        <input type="text" id="vol-last" placeholder="Smith" autocomplete="family-name" />
+      </div>
+      <div class="vol-field">
+        <label>Email *</label>
+        <input type="email" id="vol-email" placeholder="jane@example.com" autocomplete="email" />
+      </div>
+      <div class="vol-field">
+        <label>Phone</label>
+        <input type="tel" id="vol-phone" placeholder="(801) 555-0100" autocomplete="tel" />
+      </div>
+      <div class="vol-field">
+        <label>Precinct</label>
+        <input type="text" id="vol-precinct-display" value="${props.AliasName || props.PrecinctID || ''}" readonly />
+      </div>
+      <button class="vol-submit" id="vol-submit-btn" onclick="submitVolunteer()">Submit →</button>
+      <div class="vol-message" id="vol-message"></div>
+    </div>`;
+}
+
+function toggleVolForm() {
+  const wrap = document.getElementById('vol-form-wrap');
+  const btn  = document.getElementById('vol-toggle-btn');
+  if (!wrap || !btn) return;
+  const isOpen = wrap.style.display !== 'none';
+  wrap.style.display = isOpen ? 'none' : '';
+  btn.textContent    = isOpen ? 'Get Involved →' : 'Close ✕';
+  btn.classList.toggle('open', !isOpen);
+}
+
+async function submitVolunteer() {
+  const first = document.getElementById('vol-first')?.value.trim();
+  const last  = document.getElementById('vol-last')?.value.trim();
+  const email = document.getElementById('vol-email')?.value.trim();
+  const phone = document.getElementById('vol-phone')?.value.trim();
+  const msgEl = document.getElementById('vol-message');
+  const btn   = document.getElementById('vol-submit-btn');
+
+  if (!first)  { msgEl.textContent = 'First name is required.'; msgEl.className = 'vol-message error'; return; }
+  if (!email)  { msgEl.textContent = 'Email is required.';      msgEl.className = 'vol-message error'; return; }
+
+  btn.disabled    = true;
+  btn.textContent = 'Submitting…';
+  msgEl.textContent = '';
+
+  const props    = _volProps     || {};
+  const districts = _volDistricts || {};
+  const county   = COUNTIES[props.CountyID] || null;
+
+  try {
+    const res = await fetch('/api/volunteer', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        firstName:        first,
+        lastName:         last  || null,
+        email,
+        phone:            phone || null,
+        precinctName:     props.AliasName  || null,
+        precinctId:       props.PrecinctID || null,
+        county,
+        houseDistrict:    districts.house     != null ? String(districts.house)     : null,
+        senateDistrict:   districts.senate    != null ? String(districts.senate)    : null,
+        congressDistrict: districts.congress  != null ? String(districts.congress)  : null,
+        addressInput:     document.getElementById('address-input')?.value || null,
+        sourceUrl:        window.location.href,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      msgEl.textContent = '✓ Thank you! We\'ll be in touch.';
+      msgEl.className   = 'vol-message success';
+      btn.textContent   = 'Submitted ✓';
+    } else {
+      msgEl.textContent = data.error || 'Something went wrong. Please try again.';
+      msgEl.className   = 'vol-message error';
+      btn.disabled      = false;
+      btn.textContent   = 'Submit →';
+    }
+  } catch {
+    msgEl.textContent = 'Network error. Please try again.';
+    msgEl.className   = 'vol-message error';
+    btn.disabled      = false;
+    btn.textContent   = 'Submit →';
+  }
 }
 
 function buildHouseSidebar(dist, precinctCount) {
@@ -1217,12 +1489,16 @@ function attachPrecinctClick(layer) {
     const latlng = e.latlng;
     const name   = props.AliasName || props.PrecinctID || 'Precinct';
 
-    // Show immediately with loading state for districts
-    showSidebar(name, buildPrecinctSidebar(props, latlng, null));
+    // Show immediately with loading states for districts + candidates
+    showSidebar(name, buildPrecinctSidebar(props, latlng, null, undefined));
 
-    // Query districts async, then update
+    // Query districts and candidates in parallel
     const info = await queryDistrictInfo(latlng.lng, latlng.lat);
-    showSidebar(name, buildPrecinctSidebar(props, latlng, info));
+    // Re-render with districts filled in but candidates still loading
+    showSidebar(name, buildPrecinctSidebar(props, latlng, info, undefined));
+
+    const candHtml = await loadCandidatesForDistricts(info, props.PrecinctID);
+    showSidebar(name, buildPrecinctSidebar(props, latlng, info, candHtml));
   });
 }
 

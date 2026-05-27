@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Candidate Management</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f4f8; color: #1a2744; min-height: 100vh; }
+
+    header { background: #003594; color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 1.1rem; font-weight: 700; }
+    header p  { font-size: .8rem; opacity: .75; margin-top: 2px; }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+
+    /* Auth gate */
+    #auth-gate { max-width: 380px; margin: 80px auto; background: #fff; border-radius: 10px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+    #auth-gate h2 { margin-bottom: 16px; font-size: 1.1rem; color: #003594; }
+    #auth-gate input { width: 100%; padding: 10px 12px; border: 2px solid #c5d0e0; border-radius: 6px; font-size: 1rem; margin-bottom: 12px; }
+    #auth-gate input:focus { border-color: #003594; outline: none; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #d0d8e8; }
+    .tab-btn { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: .9rem; font-weight: 600; color: #607090; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: color .15s; }
+    .tab-btn.active { color: #003594; border-bottom-color: #003594; }
+
+    /* Toolbar */
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .toolbar h2 { font-size: 1rem; font-weight: 700; }
+
+    /* Buttons */
+    .btn { padding: 9px 18px; border: none; border-radius: 6px; font-size: .875rem; font-weight: 600; cursor: pointer; transition: background .15s; }
+    .btn-primary { background: #003594; color: #fff; }
+    .btn-primary:hover { background: #0048c8; }
+    .btn-danger  { background: #b00020; color: #fff; font-size: .78rem; padding: 5px 10px; }
+    .btn-danger:hover  { background: #8a0018; }
+    .btn-edit    { background: #e8f0fe; color: #003594; font-size: .78rem; padding: 5px 10px; }
+    .btn-edit:hover    { background: #d0e0fc; }
+    .btn-sm { font-size: .78rem; padding: 5px 12px; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.07); }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { text-align: left; padding: 11px 14px; background: #f5f8ff; color: #607090; font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; border-bottom: 2px solid #e0e8f5; white-space: nowrap; }
+    td { padding: 11px 14px; border-bottom: 1px solid #f0f4f8; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbff; }
+    .td-actions { display: flex; gap: 6px; }
+
+    /* Candidate photo */
+    .cand-photo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #e0e8f5; }
+    .cand-initials { width: 36px; height: 36px; border-radius: 50%; background: #003594; color: #fff; display: flex; align-items: center; justify-content: center; font-size: .78rem; font-weight: 700; flex-shrink: 0; }
+
+    /* District badge */
+    .dist-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .72rem; font-weight: 700; color: #fff; }
+    .dist-house       { background: #7c3aed; }
+    .dist-senate      { background: #0891b2; }
+    .dist-congress    { background: #d97706; }
+    .dist-school_board{ background: #059669; }
+    .dist-precinct    { background: #003594; }
+
+    /* Modal */
+    .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,.2); }
+    .modal h2 { font-size: 1.05rem; margin-bottom: 20px; color: #003594; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+    /* Form fields */
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: .78rem; font-weight: 700; color: #455a80; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+    .field input, .field select, .field textarea {
+      width: 100%; padding: 9px 12px; border: 2px solid #c5d0e0; border-radius: 6px; font-size: .9rem; font-family: inherit; outline: none; transition: border-color .15s;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: #003594; }
+    .field textarea { resize: vertical; min-height: 72px; }
+    .field-row { display: flex; gap: 12px; }
+    .field-row .field { flex: 1; }
+
+    /* Toast */
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a2744; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: .88rem; display: none; z-index: 2000; }
+    #toast.error { background: #b00020; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 40px; color: #90a0b0; font-size: .9rem; }
+
+    /* Signup table extras */
+    .signup-email { color: #003594; font-weight: 600; }
+    .signup-phone { color: #607090; font-size: .8rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Candidate Admin</h1>
+    <p>Manage candidates and view volunteer signups</p>
+  </div>
+</header>
+
+<!-- Auth gate -->
+<div id="auth-gate">
+  <h2>Enter Admin Secret</h2>
+  <input type="password" id="secret-input" placeholder="Admin secret key" />
+  <button class="btn btn-primary" style="width:100%" onclick="login()">Sign In</button>
+  <p id="auth-error" style="color:#b00020;font-size:.82rem;margin-top:8px;display:none">Incorrect secret.</p>
+</div>
+
+<!-- Main app (hidden until auth) -->
+<div id="app" style="display:none">
+  <div class="container">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('candidates')">Candidates</button>
+      <button class="tab-btn" onclick="switchTab('signups')">Volunteer Signups</button>
+    </div>
+
+    <!-- Candidates tab -->
+    <div id="tab-candidates">
+      <div class="toolbar">
+        <h2>Candidates <span id="cand-count" style="color:#90a0b0;font-weight:400"></span></h2>
+        <button class="btn btn-primary" onclick="openCreateModal()">+ Add Candidate</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Name</th>
+              <th>Office</th>
+              <th>District</th>
+              <th>Links</th>
+              <th>Active</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="cand-tbody">
+            <tr><td colspan="7" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Signups tab -->
+    <div id="tab-signups" style="display:none">
+      <div class="toolbar">
+        <h2>Volunteer Signups <span id="signup-count" style="color:#90a0b0;font-weight:400"></span></h2>
+        <button class="btn btn-primary btn-sm" onclick="loadSignups()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Name</th>
+              <th>Contact</th>
+              <th>Precinct</th>
+              <th>House</th>
+              <th>Senate</th>
+              <th>County</th>
+              <th>Webhook</th>
+            </tr>
+          </thead>
+          <tbody id="signup-tbody">
+            <tr><td colspan="8" class="empty">Click Refresh to load signups.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Candidate modal -->
+<div class="modal-backdrop" id="cand-modal">
+  <div class="modal">
+    <h2 id="modal-title">Add Candidate</h2>
+    <input type="hidden" id="edit-id" />
+
+    <div class="field-row">
+      <div class="field" style="flex:2">
+        <label>Name *</label>
+        <input type="text" id="f-name" placeholder="Jane Smith" />
+      </div>
+      <div class="field" style="flex:1">
+        <label>Order</label>
+        <input type="number" id="f-order" value="0" min="0" />
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>District Type *</label>
+        <select id="f-dtype">
+          <option value="">— select —</option>
+          <option value="house">State House</option>
+          <option value="senate">State Senate</option>
+          <option value="congress">Congressional</option>
+          <option value="school_board">School Board</option>
+          <option value="precinct">Precinct</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>District Value *</label>
+        <input type="text" id="f-dvalue" placeholder="e.g. 14 or SL-14" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Office Title</label>
+      <input type="text" id="f-office" placeholder="e.g. State House of Representatives" />
+    </div>
+
+    <div class="field">
+      <label>Short Bio</label>
+      <textarea id="f-bio" placeholder="1–2 sentence bio…"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Photo URL</label>
+      <input type="url" id="f-photo" placeholder="https://…" />
+    </div>
+
+    <div class="field">
+      <label>Website</label>
+      <input type="url" id="f-website" placeholder="https://…" />
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Volunteer Link</label>
+        <input type="url" id="f-volunteer" placeholder="https://…" />
+      </div>
+      <div class="field">
+        <label>Donate Link</label>
+        <input type="url" id="f-donate" placeholder="https://…" />
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn" style="background:#f0f4f8;color:#455a80" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCandidate()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let SECRET = '';
+
+function login() {
+  const s = document.getElementById('secret-input').value.trim();
+  if (!s) return;
+  SECRET = s;
+  // Verify by hitting the admin endpoint
+  fetch('/api/admin?resource=candidates', {
+    headers: { Authorization: `Bearer ${SECRET}` }
+  }).then(r => {
+    if (r.ok) {
+      document.getElementById('auth-gate').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadCandidates();
+    } else {
+      document.getElementById('auth-error').style.display = 'block';
+      SECRET = '';
+    }
+  });
+}
+
+document.getElementById('secret-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') login();
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.getElementById('tab-candidates').style.display = name === 'candidates' ? '' : 'none';
+  document.getElementById('tab-signups').style.display    = name === 'signups'    ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0) === (name === 'candidates'));
+  });
+  if (name === 'signups') loadSignups();
+}
+
+// ── Candidates ────────────────────────────────────────────────────────────────
+let candidates = [];
+
+async function loadCandidates() {
+  const res = await fetch('/api/admin?resource=candidates', {
+    headers: { Authorization: `Bearer ${SECRET}` }
+  });
+  candidates = await res.json();
+  renderCandidates();
+}
+
+function renderCandidates() {
+  const tbody = document.getElementById('cand-tbody');
+  document.getElementById('cand-count').textContent = `(${candidates.length})`;
+
+  if (!candidates.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No candidates yet. Click + Add Candidate to start.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = candidates.map(c => {
+    const initials = c.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const avatar   = c.photo_url
+      ? `<img class="cand-photo" src="${esc(c.photo_url)}" alt="" />`
+      : `<div class="cand-initials">${esc(initials)}</div>`;
+    const links = [
+      c.website      ? `<a href="${esc(c.website)}"      target="_blank" style="color:#003594;font-size:.78rem">Site</a>` : '',
+      c.volunteer_url? `<a href="${esc(c.volunteer_url)}" target="_blank" style="color:#059669;font-size:.78rem">Vol</a>`  : '',
+      c.donate_url   ? `<a href="${esc(c.donate_url)}"   target="_blank" style="color:#d97706;font-size:.78rem">Don</a>`  : '',
+    ].filter(Boolean).join(' &nbsp;');
+
+    return `<tr>
+      <td>${avatar}</td>
+      <td><strong>${esc(c.name)}</strong></td>
+      <td style="color:#607090">${esc(c.office || '—')}</td>
+      <td><span class="dist-badge dist-${c.district_type}">${esc(c.district_type)}</span> ${esc(String(c.district_value))}</td>
+      <td>${links || '—'}</td>
+      <td style="color:${c.active ? '#059669' : '#b00020'}">${c.active ? '✓' : '✗'}</td>
+      <td class="td-actions">
+        <button class="btn btn-edit" onclick="openEditModal(${c.id})">Edit</button>
+        <button class="btn btn-danger" onclick="deleteCandidate(${c.id})">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openCreateModal() {
+  document.getElementById('modal-title').textContent = 'Add Candidate';
+  document.getElementById('edit-id').value = '';
+  ['name','order','dtype','dvalue','office','bio','photo','website','volunteer','donate']
+    .forEach(k => {
+      const el = document.getElementById(`f-${k}`);
+      if (el) el.value = k === 'order' ? '0' : '';
+    });
+  document.getElementById('cand-modal').classList.add('open');
+}
+
+function openEditModal(id) {
+  const c = candidates.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('modal-title').textContent = 'Edit Candidate';
+  document.getElementById('edit-id').value          = c.id;
+  document.getElementById('f-name').value           = c.name || '';
+  document.getElementById('f-order').value          = c.display_order ?? 0;
+  document.getElementById('f-dtype').value          = c.district_type || '';
+  document.getElementById('f-dvalue').value         = c.district_value || '';
+  document.getElementById('f-office').value         = c.office || '';
+  document.getElementById('f-bio').value            = c.bio || '';
+  document.getElementById('f-photo').value          = c.photo_url || '';
+  document.getElementById('f-website').value        = c.website || '';
+  document.getElementById('f-volunteer').value      = c.volunteer_url || '';
+  document.getElementById('f-donate').value         = c.donate_url || '';
+  document.getElementById('cand-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('cand-modal').classList.remove('open');
+}
+
+// Close on backdrop click
+document.getElementById('cand-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+async function saveCandidate() {
+  const id = document.getElementById('edit-id').value;
+  const body = {
+    name:           document.getElementById('f-name').value.trim(),
+    display_order:  parseInt(document.getElementById('f-order').value || '0', 10),
+    district_type:  document.getElementById('f-dtype').value,
+    district_value: document.getElementById('f-dvalue').value.trim(),
+    office:         document.getElementById('f-office').value.trim() || null,
+    bio:            document.getElementById('f-bio').value.trim() || null,
+    photo_url:      document.getElementById('f-photo').value.trim() || null,
+    website:        document.getElementById('f-website').value.trim() || null,
+    volunteer_url:  document.getElementById('f-volunteer').value.trim() || null,
+    donate_url:     document.getElementById('f-donate').value.trim() || null,
+    active:         true,
+  };
+
+  const url    = id ? `/api/admin?resource=candidates&id=${id}` : '/api/admin?resource=candidates';
+  const method = id ? 'PUT' : 'POST';
+
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SECRET}` },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+  if (!res.ok) { toast(data.error || 'Save failed', true); return; }
+
+  toast(id ? 'Candidate updated.' : 'Candidate created.');
+  closeModal();
+  loadCandidates();
+}
+
+async function deleteCandidate(id) {
+  const c = candidates.find(x => x.id === id);
+  if (!c || !confirm(`Deactivate "${c.name}"?`)) return;
+  const res = await fetch(`/api/admin?resource=candidates&id=${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${SECRET}` },
+  });
+  if (res.ok) { toast('Candidate deactivated.'); loadCandidates(); }
+  else { const d = await res.json(); toast(d.error || 'Delete failed', true); }
+}
+
+// ── Signups ───────────────────────────────────────────────────────────────────
+async function loadSignups() {
+  const tbody = document.getElementById('signup-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
+
+  const res = await fetch('/api/admin?resource=signups&limit=200', {
+    headers: { Authorization: `Bearer ${SECRET}` }
+  });
+  const rows = await res.json();
+  document.getElementById('signup-count').textContent = `(${rows.length})`;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">No signups yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(s => {
+    const date = new Date(s.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const name = [s.first_name, s.last_name].filter(Boolean).join(' ');
+    const webhook = s.webhook_sent == null ? '—' : s.webhook_sent ? '✓' : '✗';
+    return `<tr>
+      <td style="white-space:nowrap;color:#607090;font-size:.78rem">${date}</td>
+      <td>${esc(name)}</td>
+      <td><div class="signup-email">${esc(s.email)}</div><div class="signup-phone">${esc(s.phone || '')}</div></td>
+      <td style="font-size:.8rem">${esc(s.precinct_name || s.precinct_id || '—')}</td>
+      <td style="font-size:.8rem">${esc(s.house_district || '—')}</td>
+      <td style="font-size:.8rem">${esc(s.senate_district || '—')}</td>
+      <td style="font-size:.8rem">${esc(s.county || '—')}</td>
+      <td style="color:${s.webhook_sent ? '#059669' : s.webhook_sent === false ? '#b00020' : '#90a0b0'}">${webhook}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = isError ? 'error' : '';
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+</script>
+
+</body>
+</html>

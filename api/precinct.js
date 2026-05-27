@@ -10,13 +10,13 @@
  * GeoJSON geometry, and a self-contained renderable HTML map snippet.
  */
 
-const UGRC_API_KEY     = process.env.UGRC_API_KEY;
-const ARCGIS_BASE      = 'https://services1.arcgis.com/99lidPhWCzftIe9K/ArcGIS/rest/services';
+const config = require('../lib/config');
 
-const PRECINCT_SERVICE  = `${ARCGIS_BASE}/VistaBallotAreas/FeatureServer/0/query`;
-const HOUSE_SERVICE     = `${ARCGIS_BASE}/UtahHouseDistricts2022to2032/FeatureServer/0/query`;
-const SENATE_SERVICE    = `${ARCGIS_BASE}/UtahSenateDistricts2022to2032/FeatureServer/0/query`;
-const CONGRESS_SERVICE  = `${ARCGIS_BASE}/political_us_congress_districts_2026_to_2032/FeatureServer/0/query`;
+const UGRC_API_KEY     = config.ugrcApiKey;
+const PRECINCT_SERVICE  = config.arcgis.precinct;
+const HOUSE_SERVICE     = config.arcgis.house;
+const SENATE_SERVICE    = config.arcgis.senate;
+const CONGRESS_SERVICE  = config.arcgis.congress;
 
 // ── Address parser ────────────────────────────────────────────────────────────
 function parseAddress(raw) {
@@ -227,7 +227,7 @@ module.exports = async (req, res) => {
       `?apiKey=${UGRC_API_KEY}&spatialReference=4326`;
 
     const geoRes  = await fetch(geocodeUrl, {
-      headers: { Referer: 'https://utah-dem-precinct-map.vercel.app/' }
+      headers: { Referer: config.ugrcReferer }
     });
     const geoJson = await geoRes.json();
 
