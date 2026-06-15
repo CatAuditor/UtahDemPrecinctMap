@@ -19,6 +19,15 @@
       flex-direction: column;
     }
 
+    /* ── Embed mode (for iframe on Squarespace / external sites) ──
+       ?embed=1 hides header + footer; ?header=0 / ?footer=0 hide individually.
+       Fills the iframe's height exactly so the map drives the layout. */
+    html.embed, html.embed body { height: 100%; }
+    html.embed body { min-height: 0; }
+    html.embed header,  html.no-header header { display: none; }
+    html.embed footer,  html.no-footer footer { display: none; }
+    html.embed .search-panel { padding: 14px 18px; }
+
     /* ── Header ── */
     header {
       background: #003594;
@@ -434,6 +443,17 @@
       .input-row button { width: 100%; }
     }
   </style>
+  <script>
+    // Embed mode: ?embed=1 hides chrome for a clean iframe widget (Squarespace etc.).
+    // ?header=0 / ?footer=0 hide those individually. Runs before paint to avoid flash.
+    (function () {
+      var p  = new URLSearchParams(location.search);
+      var el = document.documentElement;
+      if (p.get('embed')  === '1') el.classList.add('embed');
+      if (p.get('header') === '0') el.classList.add('no-header');
+      if (p.get('footer') === '0') el.classList.add('no-footer');
+    })();
+  </script>
 </head>
 <body>
 
