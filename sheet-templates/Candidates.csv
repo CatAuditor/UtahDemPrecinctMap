@@ -1,0 +1,3 @@
+Name,Office,DistrictType,District,PhotoURL,Bio,Website,Email,Phone,Facebook,Instagram,X,VolunteerURL,DonateURL,TopIssues,Active,Order
+Jane Smith,State House,house,10,,"Teacher and community advocate focused on public schools.",https://janesmith.example,jane@example.com,801-555-0100,https://facebook.com/janesmithUT,,@janesmithUT,https://janesmith.example/volunteer,https://janesmith.example/donate,"Education, Housing, Healthcare",TRUE,1
+Bob Lee,State Senate,senate,5,,"Small-business owner running to protect public lands.",https://boblee.example,,,,https://instagram.com/bobleeUT,,https://boblee.example/volunteer,,"Environment, Economy",TRUE,1
