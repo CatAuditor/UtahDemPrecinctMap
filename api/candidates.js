@@ -1,60 +1,105 @@
 /**
  * GET /api/candidates
  *
- * Query params (all optional, at least one district recommended):
- *   houseDistrict     — state house district number
- *   senateDistrict    — state senate district number
- *   congressDistrict  — congressional district number
- *   schoolBoard       — school board district number
- *   precinctId        — precinct ID
+ * Reads the candidate Google Sheet, filters by the district(s) provided, and
+ * returns matching active candidates. Organizers manage the sheet directly.
  *
- * Returns all active candidates matching any of the provided districts,
- * ordered by district_type then display_order.
+ * Query params (provide at least one):
+ *   houseDistrict, senateDistrict, congressDistrict, schoolBoard, precinctId
+ *
+ * Expected sheet headers (row 1, order-independent):
+ *   Name | Office | DistrictType | District | PhotoURL | Bio | Website |
+ *   Email | Phone | Facebook | Instagram | X | VolunteerURL | DonateURL |
+ *   TopIssues | Active | Order
  */
 
-const { getDb } = require('../lib/db');
+const config = require('../lib/config');
+const { readRange, rowsToObjects } = require('../lib/sheets');
+
+// Short in-memory cache so a warm function instance doesn't refetch every call
+let _cache = { rows: null, exp: 0 };
+const CACHE_MS = 60 * 1000;
+
+async function getCandidateRows() {
+  const now = Date.now();
+  if (_cache.rows && _cache.exp > now) return _cache.rows;
+  const values = await readRange(config.sheets.candidateId, `${config.sheets.candidateTab}!A:Z`);
+  const rows = rowsToObjects(values);
+  _cache = { rows, exp: now + CACHE_MS };
+  return rows;
+}
+
+function isActive(row) {
+  const v = String(row.Active ?? '').trim().toLowerCase();
+  return v !== 'false' && v !== 'no' && v !== '0' && v !== 'n';
+}
+
+function splitIssues(raw) {
+  return String(raw || '')
+    .split(/[,;]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function shapeCandidate(row) {
+  return {
+    name:         row.Name || '',
+    office:       row.Office || '',
+    districtType: String(row.DistrictType || '').trim().toLowerCase(),
+    district:     String(row.District || '').trim(),
+    photoUrl:     row.PhotoURL || '',
+    bio:          row.Bio || '',
+    website:      row.Website || '',
+    email:        row.Email || '',
+    phone:        row.Phone || '',
+    social: {
+      facebook:  row.Facebook || '',
+      instagram: row.Instagram || '',
+      x:         row.X || row.Twitter || '',
+    },
+    volunteerUrl: row.VolunteerURL || '',
+    donateUrl:    row.DonateURL || '',
+    issues:       splitIssues(row.TopIssues),
+    order:        Number(row.Order || 0),
+  };
+}
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Cache-Control', 'public, max-age=60');
+  // CDN-cache so public lookups rarely touch the Sheets API
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const { houseDistrict, senateDistrict, congressDistrict, schoolBoard, precinctId } = req.query;
 
-  // Build a filter of (district_type, district_value) pairs to match against
-  const filters = [];
-  if (houseDistrict)    filters.push({ type: 'house',        value: String(houseDistrict) });
-  if (senateDistrict)   filters.push({ type: 'senate',       value: String(senateDistrict) });
-  if (congressDistrict) filters.push({ type: 'congress',     value: String(congressDistrict) });
-  if (schoolBoard)      filters.push({ type: 'school_board', value: String(schoolBoard) });
-  if (precinctId)       filters.push({ type: 'precinct',     value: String(precinctId) });
+  // Map each district type to the requested value
+  const wanted = {};
+  if (houseDistrict)    wanted.house        = String(houseDistrict).trim();
+  if (senateDistrict)   wanted.senate       = String(senateDistrict).trim();
+  if (congressDistrict) wanted.congress     = String(congressDistrict).trim();
+  if (schoolBoard)      wanted.school_board = String(schoolBoard).trim();
+  if (precinctId)       wanted.precinct     = String(precinctId).trim();
 
-  if (!filters.length) {
+  if (!Object.keys(wanted).length) {
     return res.status(400).json({ error: 'Provide at least one district parameter.' });
   }
 
+  if (!config.sheets.candidateId) {
+    return res.status(500).json({ error: 'CANDIDATE_SHEET_ID is not configured.' });
+  }
+
   try {
-    const sql = getDb();
+    const rows = await getCandidateRows();
+    const candidates = rows
+      .filter(isActive)
+      .map(shapeCandidate)
+      .filter(c => c.districtType in wanted && c.district === wanted[c.districtType])
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 
-    // Build WHERE clause: active AND (type/value pairs joined with OR)
-    const conditions = filters.map((f, i) =>
-      `(district_type = $${i * 2 + 1} AND district_value = $${i * 2 + 2})`
-    );
-    const values = filters.flatMap(f => [f.type, f.value]);
-
-    const rows = await sql(
-      `SELECT id, name, photo_url, bio, website, volunteer_url, donate_url,
-              office, district_type, district_value, display_order
-       FROM candidates
-       WHERE active = true AND (${conditions.join(' OR ')})
-       ORDER BY display_order ASC, district_type ASC, name ASC`,
-      values
-    );
-
-    return res.status(200).json({ success: true, candidates: rows });
+    return res.status(200).json({ success: true, candidates });
   } catch (err) {
     console.error('[candidates] error:', err.message);
     return res.status(500).json({ error: 'Failed to load candidates.' });

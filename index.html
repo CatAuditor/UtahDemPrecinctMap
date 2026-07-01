@@ -196,35 +196,67 @@
     .clink-vol  { background: #d1fae5; color: #065f46; }
     .clink-don  { background: #fef3c7; color: #92400e; }
 
-    /* ── Volunteer form ── */
-    .vol-form-section {
-      background: #f5f8ff;
-      border-radius: 8px;
-      padding: 14px;
-      margin-top: 4px;
+    /* Candidate issue tags + social */
+    .candidate-issues { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .issue-tag { background: #eef2f8; color: #455a80; font-size: .68rem; font-weight: 600; padding: 2px 7px; border-radius: 8px; }
+    .candidate-social { display: flex; gap: 6px; margin-top: 6px; }
+    .social-link {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px;
+      border-radius: 6px; background: #f0f4f8; color: #003594;
+      font-size: .7rem; font-weight: 700; text-decoration: none;
     }
-    .vol-field { margin-bottom: 10px; }
-    .vol-field label { display: block; font-size: .72rem; font-weight: 700; color: #455a80; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
-    .vol-field input {
-      width: 100%; padding: 8px 10px;
-      border: 2px solid #c5d0e0; border-radius: 6px;
-      font-size: .875rem; outline: none;
-      transition: border-color .15s;
+    .social-link:hover { background: #e0e8f5; }
+
+    /* ── Get Involved funnel modal ── */
+    .funnel-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(10,20,40,.5); z-index: 3000;
+      align-items: center; justify-content: center; padding: 16px;
     }
-    .vol-field input:focus { border-color: #003594; }
-    .vol-field input[readonly] { background: #eef2f8; color: #607090; }
-    .vol-submit {
-      width: 100%; padding: 10px;
-      background: #003594; color: #fff;
-      border: none; border-radius: 6px;
-      font-size: .9rem; font-weight: 700;
-      cursor: pointer; transition: background .15s; margin-top: 4px;
+    .funnel-backdrop.open { display: flex; }
+    .funnel-modal {
+      background: #fff; border-radius: 14px; width: 100%; max-width: 440px;
+      max-height: 92vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3);
     }
-    .vol-submit:hover { background: #0048c8; }
-    .vol-submit:disabled { background: #7a9fd4; cursor: not-allowed; }
-    .vol-message { font-size: .82rem; margin-top: 8px; text-align: center; }
-    .vol-message.success { color: #065f46; }
-    .vol-message.error   { color: #b00020; }
+    .funnel-inner { padding: 26px 24px; }
+    .funnel-progress { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8899aa; }
+    .funnel-title { font-size: 1.2rem; color: #003594; margin: 6px 0 4px; }
+    .funnel-sub { font-size: .85rem; color: #607090; margin-bottom: 16px; line-height: 1.4; }
+    .funnel-empty { color: #90a0b0; font-size: .85rem; }
+    .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .chip {
+      border: 2px solid #c5d0e0; background: #fff; color: #1a2744;
+      padding: 8px 14px; border-radius: 20px; font-size: .85rem; font-weight: 600;
+      cursor: pointer; transition: all .12s;
+    }
+    .chip:hover { border-color: #7a9fd4; }
+    .chip.selected { background: #003594; border-color: #003594; color: #fff; }
+    .funnel-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; }
+    .funnel-btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: .9rem; font-weight: 700; cursor: pointer; }
+    .funnel-btn.primary { background: #003594; color: #fff; }
+    .funnel-btn.primary:hover { background: #0048c8; }
+    .funnel-btn.primary:disabled { background: #7a9fd4; cursor: not-allowed; }
+    .funnel-btn.ghost { background: #f0f4f8; color: #455a80; }
+    .funnel-row { display: flex; gap: 10px; }
+    .funnel-row .funnel-field { flex: 1; }
+    .funnel-field { margin-bottom: 12px; }
+    .funnel-field label { display: block; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #455a80; margin-bottom: 4px; }
+    .funnel-field input {
+      width: 100%; padding: 10px 12px; border: 2px solid #c5d0e0;
+      border-radius: 8px; font-size: .92rem; outline: none; transition: border-color .15s;
+    }
+    .funnel-field input:focus { border-color: #003594; }
+    .funnel-check { display: flex; align-items: flex-start; gap: 9px; margin: 10px 0; font-size: .85rem; color: #1a2744; cursor: pointer; line-height: 1.35; }
+    .funnel-check input { margin-top: 2px; width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+    .funnel-msg { font-size: .83rem; margin-top: 10px; text-align: center; }
+    .funnel-msg.error { color: #b00020; }
+    .funnel-success { text-align: center; padding: 20px 0; }
+    .funnel-success .check {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #d1fae5; color: #065f46; font-size: 1.8rem;
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 14px;
+    }
 
     /* Get Involved button */
     .get-involved-btn {
@@ -504,10 +536,18 @@
   &nbsp;·&nbsp; <a href="/docs.html">API Reference</a>
 </footer>
 
+<!-- Get Involved funnel modal -->
+<div class="funnel-backdrop" id="funnel-modal">
+  <div class="funnel-modal">
+    <div class="funnel-inner" id="funnel-body"></div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ── Config (injected at build time from environment variables) ────────────────
 const UGRC_API_KEY = '%%UGRC_API_KEY%%';
+const CLIENT_NAME  = '%%CLIENT_NAME%%';
 
 const ARCGIS           = '%%ARCGIS_BASE%%';
 const PRECINCT_SVC     = `${ARCGIS}/%%PRECINCT_SVC_PATH%%`;
@@ -1274,25 +1314,55 @@ function buildPrecinctSidebar(props, latlng, districtInfo, candidatesHtml) {
 }
 
 // ── Candidate rendering ───────────────────────────────────────────────────────
+function normalizeUrl(url) {
+  let href = String(url || '').trim();
+  if (!href) return '';
+  if (href.startsWith('@')) return 'https://x.com/' + href.slice(1);
+  if (!/^https?:\/\//i.test(href)) href = 'https://' + href;
+  return href;
+}
+
+function socialLink(url, label) {
+  const href = normalizeUrl(url);
+  if (!href) return '';
+  return `<a class="social-link" href="${escHtml(href)}" target="_blank" rel="noopener" title="${label}">${label}</a>`;
+}
+
 function renderCandidateCard(c) {
-  const initials = c.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const avatar   = c.photo_url
-    ? `<img class="candidate-avatar" src="${c.photo_url}" alt="" />`
-    : `<div class="candidate-initials">${initials}</div>`;
-  const bio   = c.bio   ? `<div class="candidate-bio">${c.bio}</div>` : '';
+  const name     = c.name || 'Candidate';
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const avatar   = c.photoUrl
+    ? `<img class="candidate-avatar" src="${escHtml(normalizeUrl(c.photoUrl))}" alt="" />`
+    : `<div class="candidate-initials">${escHtml(initials)}</div>`;
+  const bio    = c.bio ? `<div class="candidate-bio">${escHtml(c.bio)}</div>` : '';
+  const issues = (c.issues && c.issues.length)
+    ? `<div class="candidate-issues">${c.issues.map(i => `<span class="issue-tag">${escHtml(i)}</span>`).join('')}</div>`
+    : '';
+
+  const social = [
+    socialLink(c.social?.facebook,  'FB'),
+    socialLink(c.social?.instagram, 'IG'),
+    socialLink(c.social?.x,         'X'),
+    c.email ? `<a class="social-link" href="mailto:${escHtml(c.email)}" title="Email">✉</a>` : '',
+    c.phone ? `<a class="social-link" href="tel:${escHtml(c.phone)}" title="Call">☎</a>` : '',
+  ].filter(Boolean).join('');
+  const socialRow = social ? `<div class="candidate-social">${social}</div>` : '';
+
   const links = [
-    c.website      ? `<a class="candidate-link clink-site" href="${c.website}"      target="_blank" rel="noopener">Website</a>` : '',
-    c.volunteer_url? `<a class="candidate-link clink-vol"  href="${c.volunteer_url}" target="_blank" rel="noopener">Volunteer</a>` : '',
-    c.donate_url   ? `<a class="candidate-link clink-don"  href="${c.donate_url}"   target="_blank" rel="noopener">Donate</a>` : '',
+    c.website     ? `<a class="candidate-link clink-site" href="${escHtml(normalizeUrl(c.website))}"     target="_blank" rel="noopener">Website</a>`   : '',
+    c.volunteerUrl? `<a class="candidate-link clink-vol"  href="${escHtml(normalizeUrl(c.volunteerUrl))}" target="_blank" rel="noopener">Volunteer</a>` : '',
+    c.donateUrl   ? `<a class="candidate-link clink-don"  href="${escHtml(normalizeUrl(c.donateUrl))}"   target="_blank" rel="noopener">Donate</a>`    : '',
   ].filter(Boolean).join('');
 
   return `
     <div class="candidate-card">
       ${avatar}
       <div class="candidate-body">
-        <div class="candidate-name">${c.name}</div>
-        ${c.office ? `<div class="candidate-office">${c.office}</div>` : ''}
+        <div class="candidate-name">${escHtml(name)}</div>
+        ${c.office ? `<div class="candidate-office">${escHtml(c.office)}</div>` : ''}
         ${bio}
+        ${issues}
+        ${socialRow}
         ${links ? `<div class="candidate-links">${links}</div>` : ''}
       </div>
     </div>`;
@@ -1317,80 +1387,139 @@ async function loadCandidatesForDistricts(districtInfo, precinctId) {
   }
 }
 
-// ── Volunteer form ────────────────────────────────────────────────────────────
-// Holds state for the currently-open volunteer form
+// ── Get Involved funnel ───────────────────────────────────────────────────────
+// Context captured when the sidebar renders; used when the funnel submits.
 let _volProps = null;
 let _volDistricts = null;
+
+// Dynamic options from /api/config (organizer-controlled), loaded once.
+let _funnelConfig = null;
+let _funnelConfigPromise = null;
+
+// Funnel step state
+let _funnelStep = 1;
+const _funnelSelection = { issues: [], capacity: [] };
+
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 function buildVolunteerSection(props, districtInfo) {
   _volProps     = props;
   _volDistricts = districtInfo;
   return `
     <div class="info-section">
-      <button class="get-involved-btn" id="vol-toggle-btn" onclick="toggleVolForm()">Get Involved →</button>
-      <div id="vol-form-wrap" style="display:none">
-        ${buildVolForm(props, districtInfo)}
-      </div>
+      <button class="get-involved-btn" onclick="openFunnel()">Get Involved →</button>
     </div>`;
 }
 
-function buildVolForm(props, districtInfo) {
-  const county = COUNTIES[props.CountyID] || '';
-  return `
-    <div class="vol-form-section">
-      <div class="vol-field">
-        <label>First Name *</label>
-        <input type="text" id="vol-first" placeholder="Jane" autocomplete="given-name" />
-      </div>
-      <div class="vol-field">
-        <label>Last Name</label>
-        <input type="text" id="vol-last" placeholder="Smith" autocomplete="family-name" />
-      </div>
-      <div class="vol-field">
-        <label>Email *</label>
-        <input type="email" id="vol-email" placeholder="jane@example.com" autocomplete="email" />
-      </div>
-      <div class="vol-field">
-        <label>Phone</label>
-        <input type="tel" id="vol-phone" placeholder="(801) 555-0100" autocomplete="tel" />
-      </div>
-      <div class="vol-field">
-        <label>Precinct</label>
-        <input type="text" id="vol-precinct-display" value="${props.AliasName || props.PrecinctID || ''}" readonly />
-      </div>
-      <button class="vol-submit" id="vol-submit-btn" onclick="submitVolunteer()">Submit →</button>
-      <div class="vol-message" id="vol-message"></div>
-    </div>`;
+function loadFunnelConfig() {
+  if (_funnelConfig) return Promise.resolve(_funnelConfig);
+  if (!_funnelConfigPromise) {
+    _funnelConfigPromise = fetch('/api/config')
+      .then(r => r.json())
+      .then(d => (_funnelConfig = { issues: d.issues || [], capacity: d.capacity || [] }))
+      .catch(() => (_funnelConfig = { issues: [], capacity: [] }));
+  }
+  return _funnelConfigPromise;
 }
 
-function toggleVolForm() {
-  const wrap = document.getElementById('vol-form-wrap');
-  const btn  = document.getElementById('vol-toggle-btn');
-  if (!wrap || !btn) return;
-  const isOpen = wrap.style.display !== 'none';
-  wrap.style.display = isOpen ? 'none' : '';
-  btn.textContent    = isOpen ? 'Get Involved →' : 'Close ✕';
-  btn.classList.toggle('open', !isOpen);
+function openFunnel() {
+  _funnelStep = 1;
+  _funnelSelection.issues = [];
+  _funnelSelection.capacity = [];
+  document.getElementById('funnel-modal').classList.add('open');
+  renderFunnelStep();
+  // Re-render the chip steps once options arrive (but never the form step 3)
+  loadFunnelConfig().then(() => { if (_funnelStep <= 2) renderFunnelStep(); });
 }
 
-async function submitVolunteer() {
-  const first = document.getElementById('vol-first')?.value.trim();
-  const last  = document.getElementById('vol-last')?.value.trim();
-  const email = document.getElementById('vol-email')?.value.trim();
-  const phone = document.getElementById('vol-phone')?.value.trim();
-  const msgEl = document.getElementById('vol-message');
-  const btn   = document.getElementById('vol-submit-btn');
+function closeFunnel() {
+  document.getElementById('funnel-modal').classList.remove('open');
+}
 
-  if (!first)  { msgEl.textContent = 'First name is required.'; msgEl.className = 'vol-message error'; return; }
-  if (!email)  { msgEl.textContent = 'Email is required.';      msgEl.className = 'vol-message error'; return; }
+function toggleChipEl(el) {
+  const arr = _funnelSelection[el.dataset.kind];
+  const i = arr.indexOf(el.dataset.value);
+  if (i >= 0) { arr.splice(i, 1); el.classList.remove('selected'); }
+  else        { arr.push(el.dataset.value); el.classList.add('selected'); }
+}
 
-  btn.disabled    = true;
-  btn.textContent = 'Submitting…';
-  msgEl.textContent = '';
+function funnelNext() { if (_funnelStep < 3) { _funnelStep++; renderFunnelStep(); } }
+function funnelBack() { if (_funnelStep > 1) { _funnelStep--; renderFunnelStep(); } }
 
-  const props    = _volProps     || {};
-  const districts = _volDistricts || {};
-  const county   = COUNTIES[props.CountyID] || null;
+function chipList(kind, options) {
+  if (options === undefined) return '<span class="info-loading">Loading…</span>';
+  if (!options.length)       return '<span class="funnel-empty">No options available yet.</span>';
+  return options.map(o => {
+    const sel = _funnelSelection[kind].includes(o) ? ' selected' : '';
+    return `<button type="button" class="chip${sel}" data-kind="${kind}" data-value="${escHtml(o)}" onclick="toggleChipEl(this)">${escHtml(o)}</button>`;
+  }).join('');
+}
+
+function renderFunnelStep() {
+  const body = document.getElementById('funnel-body');
+
+  if (_funnelStep === 1) {
+    body.innerHTML = `
+      <div class="funnel-progress">Step 1 of 3</div>
+      <h2 class="funnel-title">What issues are your top priority?</h2>
+      <p class="funnel-sub">Select all that matter to you.</p>
+      <div class="chip-grid">${chipList('issues', _funnelConfig?.issues)}</div>
+      <div class="funnel-actions">
+        <button class="funnel-btn ghost" onclick="closeFunnel()">Cancel</button>
+        <button class="funnel-btn primary" onclick="funnelNext()">Next →</button>
+      </div>`;
+  } else if (_funnelStep === 2) {
+    body.innerHTML = `
+      <div class="funnel-progress">Step 2 of 3</div>
+      <h2 class="funnel-title">How can you help?</h2>
+      <p class="funnel-sub">Pick whatever you're up for.</p>
+      <div class="chip-grid">${chipList('capacity', _funnelConfig?.capacity)}</div>
+      <div class="funnel-actions">
+        <button class="funnel-btn ghost" onclick="funnelBack()">← Back</button>
+        <button class="funnel-btn primary" onclick="funnelNext()">Next →</button>
+      </div>`;
+  } else if (_funnelStep === 3) {
+    body.innerHTML = `
+      <div class="funnel-progress">Step 3 of 3</div>
+      <h2 class="funnel-title">Almost there</h2>
+      <p class="funnel-sub">Add your contact info and an organizer will follow up.</p>
+      <div class="funnel-row">
+        <div class="funnel-field"><label>First Name *</label><input type="text" id="fn-first" autocomplete="given-name" /></div>
+        <div class="funnel-field"><label>Last Name</label><input type="text" id="fn-last" autocomplete="family-name" /></div>
+      </div>
+      <div class="funnel-field"><label>Email *</label><input type="email" id="fn-email" autocomplete="email" /></div>
+      <div class="funnel-field"><label>Phone</label><input type="tel" id="fn-phone" autocomplete="tel" /></div>
+      <label class="funnel-check"><input type="checkbox" id="fn-help" checked /> <span>I would like to help elect Democratic candidates</span></label>
+      <label class="funnel-check"><input type="checkbox" id="fn-news" /> <span>Subscribe to the ${escHtml(CLIENT_NAME)} newsletter</span></label>
+      <div class="funnel-actions">
+        <button class="funnel-btn ghost" onclick="funnelBack()">← Back</button>
+        <button class="funnel-btn primary" id="fn-submit" onclick="submitFunnel()">Submit →</button>
+      </div>
+      <div class="funnel-msg" id="fn-msg"></div>`;
+  }
+}
+
+async function submitFunnel() {
+  const first = document.getElementById('fn-first')?.value.trim();
+  const last  = document.getElementById('fn-last')?.value.trim();
+  const email = document.getElementById('fn-email')?.value.trim();
+  const phone = document.getElementById('fn-phone')?.value.trim();
+  const help  = document.getElementById('fn-help')?.checked;
+  const news  = document.getElementById('fn-news')?.checked;
+  const msg   = document.getElementById('fn-msg');
+  const btn   = document.getElementById('fn-submit');
+
+  if (!first) { msg.textContent = 'First name is required.'; msg.className = 'funnel-msg error'; return; }
+  if (!email) { msg.textContent = 'Email is required.';      msg.className = 'funnel-msg error'; return; }
+
+  btn.disabled = true; btn.textContent = 'Submitting…'; msg.textContent = '';
+
+  const props = _volProps || {};
+  const d     = _volDistricts || {};
 
   try {
     const res = await fetch('/api/volunteer', {
@@ -1398,37 +1527,54 @@ async function submitVolunteer() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         firstName:        first,
-        lastName:         last  || null,
+        lastName:         last || null,
         email,
         phone:            phone || null,
+        issues:           _funnelSelection.issues,
+        capacity:         _funnelSelection.capacity,
+        helpElect:        !!help,
+        newsletter:       !!news,
         precinctName:     props.AliasName  || null,
         precinctId:       props.PrecinctID || null,
-        county,
-        houseDistrict:    districts.house     != null ? String(districts.house)     : null,
-        senateDistrict:   districts.senate    != null ? String(districts.senate)    : null,
-        congressDistrict: districts.congress  != null ? String(districts.congress)  : null,
+        county:           COUNTIES[props.CountyID] || null,
+        houseDistrict:    d.house    != null ? String(d.house)    : null,
+        senateDistrict:   d.senate   != null ? String(d.senate)   : null,
+        congressDistrict: d.congress != null ? String(d.congress) : null,
         addressInput:     document.getElementById('address-input')?.value || null,
         sourceUrl:        window.location.href,
       }),
     });
     const data = await res.json();
     if (res.ok) {
-      msgEl.textContent = '✓ Thank you! We\'ll be in touch.';
-      msgEl.className   = 'vol-message success';
-      btn.textContent   = 'Submitted ✓';
+      renderFunnelSuccess();
     } else {
-      msgEl.textContent = data.error || 'Something went wrong. Please try again.';
-      msgEl.className   = 'vol-message error';
-      btn.disabled      = false;
-      btn.textContent   = 'Submit →';
+      msg.textContent = data.error || 'Something went wrong. Please try again.';
+      msg.className   = 'funnel-msg error';
+      btn.disabled    = false;
+      btn.textContent = 'Submit →';
     }
   } catch {
-    msgEl.textContent = 'Network error. Please try again.';
-    msgEl.className   = 'vol-message error';
-    btn.disabled      = false;
-    btn.textContent   = 'Submit →';
+    msg.textContent = 'Network error. Please try again.';
+    msg.className   = 'funnel-msg error';
+    btn.disabled    = false;
+    btn.textContent = 'Submit →';
   }
 }
+
+function renderFunnelSuccess() {
+  document.getElementById('funnel-body').innerHTML = `
+    <div class="funnel-success">
+      <div class="check">✓</div>
+      <h2 class="funnel-title">Thank you!</h2>
+      <p class="funnel-sub">We've got your info and an organizer will be in touch soon.</p>
+      <button class="funnel-btn primary" style="width:100%" onclick="closeFunnel()">Done</button>
+    </div>`;
+}
+
+// Close the funnel when clicking the backdrop
+document.getElementById('funnel-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeFunnel();
+});
 
 function buildHouseSidebar(dist, precinctCount) {
   const countVal = precinctCount === undefined

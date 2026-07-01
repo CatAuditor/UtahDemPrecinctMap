@@ -56,9 +56,8 @@ Same iframe snippet works anywhere:
 ## Security / framing policy
 
 - The **app** (`index.html`) is intentionally frameable from any site so each
-  client can embed it on their own domain. It only exposes public precinct data.
-- The **admin** page (`admin.html`) sends `X-Frame-Options: DENY` and
-  `frame-ancestors 'none'` — it cannot be embedded anywhere (anti-clickjacking).
+  client can embed it on their own domain. It only exposes public precinct data,
+  and volunteer submissions are write-only into the client's own Google Sheet.
 - To restrict the app to a single client domain instead of allowing all sites,
   add a `Content-Security-Policy: frame-ancestors https://theirsite.com` header
   for `/index.html` in `vercel.json`. Left open by default since the data is

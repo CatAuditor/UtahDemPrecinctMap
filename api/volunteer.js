@@ -1,30 +1,30 @@
 /**
  * POST /api/volunteer
  *
- * Body (JSON):
- *   firstName*       — required
- *   lastName
- *   email*           — required
- *   phone
- *   precinctName
- *   precinctId
- *   county
- *   houseDistrict
- *   senateDistrict
- *   congressDistrict
- *   addressInput     — the address the user looked up
- *   sourceUrl        — page URL
+ * Appends one signup row to the volunteer spreadsheet's "Submissions" tab,
+ * and (optionally) forwards the JSON to VOLUNTEER_WEBHOOK_URL.
  *
- * Stores in DB, then forwards to VOLUNTEER_WEBHOOK_URL if configured.
- * To add more destinations (ActionNetwork, Google Sheets, etc.),
- * add cases to the `sendToDestinations` function.
+ * Body (JSON):
+ *   firstName*  lastName  email*  phone
+ *   issues[]            — selected top issues
+ *   capacity[]          — selected "how can you help" options
+ *   helpElect (bool)    — "I would like to help elect Democratic candidates"
+ *   newsletter (bool)   — "Subscribe to the newsletter"
+ *   precinctName  precinctId  county
+ *   houseDistrict  senateDistrict  congressDistrict
+ *   addressInput  sourceUrl
+ *
+ * Submissions column order (must match the sheet header row):
+ *   Created | FirstName | LastName | Email | Phone | TopIssues | Capacity |
+ *   Precinct | County | House | Senate | Congress | Address | HelpElect |
+ *   Newsletter | Status | DateContacted | SourceURL
  */
 
-const { getDb }  = require('../lib/db');
-const config     = require('../lib/config');
-const { createHmac } = require('crypto');
+const config            = require('../lib/config');
+const { appendRow }     = require('../lib/sheets');
+const { createHmac }    = require('crypto');
 
-function validateBody(body) {
+function validate(body) {
   const errors = [];
   if (!body.firstName?.trim()) errors.push('firstName is required');
   if (!body.email?.trim())     errors.push('email is required');
@@ -34,35 +34,49 @@ function validateBody(body) {
   return errors;
 }
 
-async function sendToWebhook(payload, url, secret) {
-  const body = JSON.stringify(payload);
-  const headers = { 'Content-Type': 'application/json' };
-
-  if (secret) {
-    const sig = createHmac('sha256', secret).update(body).digest('hex');
-    headers['X-Webhook-Signature'] = `sha256=${sig}`;
-  }
-
-  const res = await fetch(url, { method: 'POST', headers, body });
-  return { ok: res.ok, status: res.status };
+function joinList(v) {
+  if (Array.isArray(v)) return v.filter(Boolean).join(', ');
+  return v ? String(v) : '';
 }
 
-// Add additional destination functions here (ActionNetwork, Sheets, etc.)
-// Each should be async and return { ok, status }.
+function timestamp() {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: config.client.timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date()).replace(',', '');
+  } catch {
+    return new Date().toISOString();
+  }
+}
 
-async function sendToDestinations(payload) {
-  const results = [];
-
-  if (config.volunteer.webhookUrl) {
+async function appendWithRetry(row, attempts = 3) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
     try {
-      const r = await sendToWebhook(payload, config.volunteer.webhookUrl, config.volunteer.webhookSecret);
-      results.push({ destination: 'webhook', ...r });
+      return await appendRow(config.sheets.volunteerId, config.sheets.submissionsTab, row);
     } catch (err) {
-      results.push({ destination: 'webhook', ok: false, error: err.message });
+      lastErr = err;
+      await new Promise(r => setTimeout(r, 300 * (i + 1)));
     }
   }
+  throw lastErr;
+}
 
-  return results;
+async function forwardWebhook(payload) {
+  if (!config.volunteer.webhookUrl) return;
+  try {
+    const body = JSON.stringify(payload);
+    const headers = { 'Content-Type': 'application/json' };
+    if (config.volunteer.webhookSecret) {
+      const sig = createHmac('sha256', config.volunteer.webhookSecret).update(body).digest('hex');
+      headers['X-Webhook-Signature'] = `sha256=${sig}`;
+    }
+    await fetch(config.volunteer.webhookUrl, { method: 'POST', headers, body });
+  } catch (err) {
+    console.error('[volunteer] webhook forward failed:', err.message);
+  }
 }
 
 module.exports = async (req, res) => {
@@ -73,6 +87,10 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  if (!config.sheets.volunteerId) {
+    return res.status(500).json({ error: 'VOLUNTEER_SHEET_ID is not configured.' });
+  }
+
   let body;
   try {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
@@ -80,65 +98,46 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
 
-  const errors = validateBody(body);
+  const errors = validate(body);
   if (errors.length) return res.status(400).json({ error: errors.join('; ') });
 
   const payload = {
-    firstName:        body.firstName?.trim(),
-    lastName:         body.lastName?.trim()  || null,
-    email:            body.email?.trim().toLowerCase(),
-    phone:            body.phone?.trim()     || null,
-    precinctName:     body.precinctName      || null,
-    precinctId:       body.precinctId        || null,
-    county:           body.county            || null,
-    houseDistrict:    body.houseDistrict     || null,
-    senateDistrict:   body.senateDistrict    || null,
-    congressDistrict: body.congressDistrict  || null,
-    addressInput:     body.addressInput      || null,
-    sourceUrl:        body.sourceUrl         || null,
-    submittedAt:      new Date().toISOString(),
-    client:           config.client.name,
+    firstName:        body.firstName.trim(),
+    lastName:         body.lastName?.trim() || '',
+    email:            body.email.trim().toLowerCase(),
+    phone:            body.phone?.trim() || '',
+    issues:           joinList(body.issues),
+    capacity:         joinList(body.capacity),
+    precinct:         body.precinctName || body.precinctId || '',
+    county:           body.county || '',
+    house:            body.houseDistrict || '',
+    senate:           body.senateDistrict || '',
+    congress:         body.congressDistrict || '',
+    address:          body.addressInput || '',
+    helpElect:        body.helpElect ? 'TRUE' : 'FALSE',
+    newsletter:       body.newsletter ? 'TRUE' : 'FALSE',
+    sourceUrl:        body.sourceUrl || '',
   };
 
+  // Submissions row — order must match the sheet header
+  const row = [
+    timestamp(),
+    payload.firstName, payload.lastName, payload.email, payload.phone,
+    payload.issues, payload.capacity,
+    payload.precinct, payload.county, payload.house, payload.senate, payload.congress,
+    payload.address, payload.helpElect, payload.newsletter,
+    'New',   // Status
+    '',      // DateContacted (organizers fill this)
+    payload.sourceUrl,
+  ];
+
   try {
-    const sql = getDb();
-
-    // Persist to DB first — this always succeeds even if webhook fails
-    const [row] = await sql(
-      `INSERT INTO volunteer_signups
-         (first_name, last_name, email, phone,
-          precinct_name, precinct_id, county,
-          house_district, senate_district, congress_district,
-          address_input, source_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-       RETURNING id`,
-      [
-        payload.firstName, payload.lastName, payload.email, payload.phone,
-        payload.precinctName, payload.precinctId, payload.county,
-        payload.houseDistrict, payload.senateDistrict, payload.congressDistrict,
-        payload.addressInput, payload.sourceUrl,
-      ]
-    );
-
-    // Forward to configured destinations (fire-and-forget after DB write)
-    const destinationResults = await sendToDestinations(payload);
-
-    // Update webhook status in DB
-    const webhookResult = destinationResults.find(r => r.destination === 'webhook');
-    if (webhookResult) {
-      await sql(
-        `UPDATE volunteer_signups SET webhook_sent = $1, webhook_status = $2 WHERE id = $3`,
-        [webhookResult.ok, String(webhookResult.status || webhookResult.error || ''), row.id]
-      );
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Thank you! Your information has been submitted.',
-      id: row.id,
-    });
+    await appendWithRetry(row);
+    // Fire-and-forget secondary destination
+    forwardWebhook(payload);
+    return res.status(200).json({ success: true, message: 'Thank you! Your information has been submitted.' });
   } catch (err) {
-    console.error('[volunteer] error:', err.message);
-    return res.status(500).json({ error: 'Failed to save your information. Please try again.' });
+    console.error('[volunteer] append failed:', err.message);
+    return res.status(500).json({ error: 'Could not save your information. Please try again.' });
   }
 };
