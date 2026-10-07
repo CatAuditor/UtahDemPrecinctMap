@@ -39,6 +39,13 @@ function joinList(v) {
   return v ? String(v) : '';
 }
 
+// The sheet append uses USER_ENTERED, so a leading = + - @ in public input
+// would be evaluated as a formula. A leading apostrophe forces plain text.
+function cell(v) {
+  const s = String(v ?? '').slice(0, 1000);
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
+
 function timestamp() {
   try {
     return new Intl.DateTimeFormat('en-US', {
@@ -122,13 +129,16 @@ module.exports = async (req, res) => {
   // Submissions row — order must match the sheet header
   const row = [
     timestamp(),
-    payload.firstName, payload.lastName, payload.email, payload.phone,
-    payload.issues, payload.capacity,
-    payload.precinct, payload.county, payload.house, payload.senate, payload.congress,
-    payload.address, payload.helpElect, payload.newsletter,
+    ...[
+      payload.firstName, payload.lastName, payload.email, payload.phone,
+      payload.issues, payload.capacity,
+      payload.precinct, payload.county, payload.house, payload.senate, payload.congress,
+      payload.address,
+    ].map(cell),
+    payload.helpElect, payload.newsletter,
     'New',   // Status
     '',      // DateContacted (organizers fill this)
-    payload.sourceUrl,
+    cell(payload.sourceUrl),
   ];
 
   try {
