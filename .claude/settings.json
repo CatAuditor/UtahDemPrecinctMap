@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check lib/sheets.js)",
+      "Bash(node --check api/config.js)",
+      "Bash(UGRC_API_KEY=test CLIENT_NAME=\"Test Party\" node build.js)",
+      "Bash(git restore *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit -q -m ' *)",
+      "Bash(mkdir -p '/Users/conner/Desktop/precinct tool')",
+      "Bash(rsync -a --exclude=.git --exclude=node_modules --exclude=.claude /Users/conner/Desktop/Projects/UtahDemPrecinctMap/ '/Users/conner/Desktop/precinct tool/')",
+      "Read(//Users/conner/Desktop/**)",
+      "Read(//Users/conner/Desktop/precinct tool/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/conner/Desktop/precinct tool"
+    ]
+  }
+}
